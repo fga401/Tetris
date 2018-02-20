@@ -42,6 +42,7 @@ namespace WindowsFormsApp1
 
 			public static void GameStart()
 			{
+				Console.WindowHeight = 30;
 				TetrisGame.Board board = new TetrisGame.Board();
 				board.Start();
 				Thread fallingThread = new Thread(new ParameterizedThreadStart(FallingThread));
@@ -85,7 +86,7 @@ namespace WindowsFormsApp1
 						{
 							lock (board)
 							{
-								if (board.MoveLeft())
+								if (board.MoveLeft(1))
 									ConsolePaintBoard(board);
 							}
 							break;
@@ -94,7 +95,7 @@ namespace WindowsFormsApp1
 						{
 							lock (board)
 							{
-								if (board.MoveRight())
+								if (board.MoveRight(1))
 									ConsolePaintBoard(board);
 							}
 							break;

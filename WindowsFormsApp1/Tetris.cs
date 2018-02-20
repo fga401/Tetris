@@ -19,8 +19,8 @@ namespace WindowsFormsApp1
 
 		public class Board
 		{
-			public const int MaxRow = 25;
-			public const int Row = 20;
+			public const int MaxRow = 30;
+			public const int Row = 25;
 			public const int Column = 10;
 			public Color?[,] board = new Color?[Column, Row];
 			protected Piece CurrentPiece { get; set; }
@@ -47,8 +47,41 @@ namespace WindowsFormsApp1
 				CurrentPiece.ClockwiseRotate(this);
 				if (CheckPieceChange() == false)
 				{
-					CurrentPiece.AntiClockwiseRotate(this);
-					return false;
+					int XRightOffset = CurrentPiece.Offset.Max(t => t.OffSetX);
+					int XLeftOffset = -CurrentPiece.Offset.Min(t => t.OffSetX);
+					bool isMoveLeftFirst = PieceCenter.CoordX > Row / 2;
+					if (isMoveLeftFirst)
+					{
+						if (MoveLeft(XRightOffset) == true)
+						{
+							return true;
+						}
+						else if (MoveRight(XLeftOffset) == true)
+						{
+							return true;
+						}
+						else
+						{
+							CurrentPiece.AntiClockwiseRotate(this);
+							return false;
+						}
+					}
+					else
+					{
+						if (MoveRight(XLeftOffset) == true)
+						{
+							return true;
+						}
+						else if (MoveLeft(XRightOffset) == true)
+						{
+							return true;
+						}
+						else
+						{
+							CurrentPiece.AntiClockwiseRotate(this);
+							return false;
+						}
+					}
 				}
 				else
 				{
@@ -60,8 +93,41 @@ namespace WindowsFormsApp1
 				CurrentPiece.AntiClockwiseRotate(this);
 				if (CheckPieceChange() == false)
 				{
-					CurrentPiece.ClockwiseRotate(this);
-					return false;
+					int XRightOffset = CurrentPiece.Offset.Max(t => t.OffSetX);
+					int XLeftOffset = -CurrentPiece.Offset.Min(t => t.OffSetX);
+					bool isMoveLeftFirst = PieceCenter.CoordX > Row / 2;
+					if (isMoveLeftFirst)
+					{
+						if (MoveLeft(XRightOffset) == true)
+						{
+							return true;
+						}
+						else if (MoveRight(XLeftOffset) == true)
+						{
+							return true;
+						}
+						else
+						{
+							CurrentPiece.ClockwiseRotate(this);
+							return false;
+						}
+					}
+					else
+					{
+						if (MoveRight(XLeftOffset) == true)
+						{
+							return true;
+						}
+						else if (MoveLeft(XRightOffset) == true)
+						{
+							return true;
+						}
+						else
+						{
+							CurrentPiece.ClockwiseRotate(this);
+							return false;
+						}
+					}
 				}
 				else
 				{
@@ -83,12 +149,12 @@ namespace WindowsFormsApp1
 					return true;
 				}
 			}
-			public bool MoveLeft()
+			public bool MoveLeft(int distance)
 			{
-				PieceCenter = TupleXInc(PieceCenter, -1);
+				PieceCenter = TupleXInc(PieceCenter, -distance);
 				if (CheckPieceChange() == false)
 				{
-					PieceCenter = TupleXInc(PieceCenter, +1);
+					PieceCenter = TupleXInc(PieceCenter, +distance);
 					return false;
 				}
 				else
@@ -96,12 +162,12 @@ namespace WindowsFormsApp1
 					return true;
 				}
 			}
-			public bool MoveRight()
+			public bool MoveRight(int distance)
 			{
-				PieceCenter = TupleXInc(PieceCenter, +1);
+				PieceCenter = TupleXInc(PieceCenter, +distance);
 				if (CheckPieceChange() == false)
 				{
-					PieceCenter = TupleXInc(PieceCenter, -1);
+					PieceCenter = TupleXInc(PieceCenter, -distance);
 					return false;
 				}
 				else
@@ -281,12 +347,10 @@ namespace WindowsFormsApp1
 
 				public override void AntiClockwiseRotate(Board board)
 				{
-					if (Cursor == 0) board.PieceCenter = (board.PieceCenter.CoordX - 1, board.PieceCenter.CoordY);
 					Cursor = Cursor - 1;
 				}
 				public override void ClockwiseRotate(Board board)
 				{
-					if (Cursor == 1) board.PieceCenter = (board.PieceCenter.CoordX + 1, board.PieceCenter.CoordY);
 					Cursor = Cursor + 1;
 				}
 			}
@@ -408,12 +472,10 @@ namespace WindowsFormsApp1
 
 				public override void AntiClockwiseRotate(Board board)
 				{
-					if (Cursor == 1) board.PieceCenter = (board.PieceCenter.CoordX - 1, board.PieceCenter.CoordY);
 					Cursor = Cursor - 1;
 				}
 				public override void ClockwiseRotate(Board board)
 				{
-					if (Cursor == 0) board.PieceCenter = (board.PieceCenter.CoordX + 1, board.PieceCenter.CoordY);
 					Cursor = Cursor + 1;
 				}
 			}
@@ -442,12 +504,10 @@ namespace WindowsFormsApp1
 
 				public override void AntiClockwiseRotate(Board board)
 				{
-					if (Cursor == 0) board.PieceCenter = (board.PieceCenter.CoordX - 1, board.PieceCenter.CoordY);
 					Cursor = Cursor + 1;
 				}
 				public override void ClockwiseRotate(Board board)
 				{
-					if (Cursor == 1) board.PieceCenter = (board.PieceCenter.CoordX + 1, board.PieceCenter.CoordY);
 					Cursor = Cursor - 1;
 				}
 			}
