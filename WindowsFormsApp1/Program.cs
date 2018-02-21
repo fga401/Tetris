@@ -175,7 +175,7 @@ namespace WindowsFormsApp1
 
 			static void PrintFailInfo(object sender, EventArgs eventArgs)
 			{
-				Console.WriteLine("You Lose!");
+				Console.WriteLine("You Lose!!");
 			}
 		}
 	}
