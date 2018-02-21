@@ -1,4 +1,4 @@
-# Tetris(alpha 0.1)
+# Tetris
 A simple and traditional Game: Tetris
 
 Todo：
