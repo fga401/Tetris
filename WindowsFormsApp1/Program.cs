@@ -43,79 +43,49 @@ namespace WindowsFormsApp1
 			public static void GameStart()
 			{
 				Console.WindowHeight = 30;
-				TetrisGame.Board board = new TetrisGame.Board();
-				board.Start();
-				Thread fallingThread = new Thread(new ParameterizedThreadStart(FallingThread));
-				fallingThread.Start(board);
-				while (!board.isFailing)
+				TetrisGame game = new TetrisGame();
+				game.PaintEvent += ConsolePaintBoard;
+				game.LoseGameEvent += PrintFailInfo;
+				game.Start();
+				while(!game.isFailing)
 				{
-					InputMonitor(board);
+					InputMonitor(game);
 				}
 			}
 
-			static void FallingThread(object B)
-			{
-				TetrisGame.Board board = (TetrisGame.Board)B;
-				while (!board.isFailing)
-				{
-					lock (board)
-					{
-						if (board.Falling())
-							ConsolePaintBoard(board);
-					}
-					Thread.Sleep(200);
-				}
-				Console.WriteLine("You Lose!");
-			}
-
-			static void InputMonitor(TetrisGame.Board board)
+			static void InputMonitor(TetrisGame game)
 			{
 				ConsoleKeyInfo key = Console.ReadKey();
 				switch(key.Key)
 				{
 					case ConsoleKey.DownArrow:
 						{
-							lock (board)
-							{
-								if (board.Falling())
-									ConsolePaintBoard(board);
-							}
+							game.FallToBottom();
 							break;
 						}
 					case ConsoleKey.LeftArrow:
 						{
-							lock (board)
-							{
-								if (board.MoveLeft(1))
-									ConsolePaintBoard(board);
-							}
+							game.MoveLeft();
 							break;
 						}
 					case ConsoleKey.RightArrow:
 						{
-							lock (board)
-							{
-								if (board.MoveRight(1))
-									ConsolePaintBoard(board);
-							}
+							game.MoveRight();
 							break;
 						}
 					case ConsoleKey.Z:
 						{
-							lock (board)
-							{
-								if (board.AntiClockwiseRotate())
-									ConsolePaintBoard(board);
-							}
+							game.AntiClockwiseRotate();
 							break;
 						}
 					case ConsoleKey.X:
 						{
-							lock(board)
-							{
-								if (board.ClockwiseRotate())
-									ConsolePaintBoard(board);
-							}
+							game.ClockwiseRotate();
+							break;
+						}
+					case ConsoleKey.UpArrow:
+						{
+							game.ClockwiseRotate();
 							break;
 						}
 					default:
@@ -123,37 +93,90 @@ namespace WindowsFormsApp1
 				}
 			}
 
-			static void ConsolePaintBoard(TetrisGame.Board board)
+			static void ConsolePaintBoard(object sender, EventArgs eventArgs)
 			{
+				TetrisGame game = (TetrisGame)sender; 
 				Console.Clear();
-				StringBuilder builder = new StringBuilder((TetrisGame.Board.Row ) * (TetrisGame.Board.Column * 2 + 2));
-				Color?[,] newBoard = board.GetBoard();
+				StringBuilder builder = new StringBuilder((game.Row * 2 ) * (game.Column * 2 + 2));
+				Color?[,] newBoard = game.GetBoard();
+				Color?[,] nextPieceBoard = game.GetNextPieceBoard();
+
 				builder.Append("┏━");
-				for (int X = 0; X < TetrisGame.Board.Column; X++)
+				for (int X = 0; X < game.Column; X++)
 					builder.Append("━━");
-				builder.Append("┓");
+				builder.Append("┓ ");
+				builder.Append("Next Piece: ");
 				builder.AppendLine();
-				for (int Y = TetrisGame.Board.Row - 1; Y >= 0; Y--)
+				for (int Y = game.Row - 1; Y >= 0; Y--)
 				{
 					builder.Append("┃ ");
-					for (int X = 0; X < TetrisGame.Board.Column; X++)
+					for (int X = 0; X < game.Column; X++)
 					{
 						if (newBoard[X, Y] == null)
 							builder.Append("  ");
 						else
 							builder.Append("█");
 					}
-					builder.Append("┃");
+					builder.Append("┃ ");
+					//PaintEvent Next Piece
+					{
+						if (Y == game.Row - 1)
+						{
+							builder.Append("┏━");
+							for (int X = 0; X < 4; X++)
+								builder.Append("━━");
+							builder.Append("┓ ");
+						}
+						else if (game.Row - 1 > Y && Y > game.Row - 6)
+						{
+							builder.Append("┃ ");
+							for (int X = 0; X < 4; X++)
+							{
+								if (nextPieceBoard[X, 5 - game.Row + Y] == null)
+									builder.Append("  ");
+								else
+									builder.Append("█");
+							}
+							builder.Append("┃ ");
+						}
+						else if (Y == game.Row - 6)
+						{
+							builder.Append("┗━");
+							for (int X = 0; X < 4; X++)
+								builder.Append("━━");
+							builder.Append("┛ ");
+						}
+						else if (Y == game.Row - 7)
+						{
+							builder.Append($"Scores: {game.Score}");
+						}
+						else if (Y == game.Row - 8)
+						{
+							builder.Append($"Line: {game.EliminatedLine}");
+						}
+						else if (Y == game.Row - 9)
+						{
+							builder.Append($"Level: {game.Level}");
+						}
+						else if (Y == game.Row - 10)
+						{
+							builder.Append($"Time: {game.PlayingTime}");
+						}
+					}
 					builder.AppendLine();
 				}
 				builder.Append("┗━");
-				for (int X = 0; X < TetrisGame.Board.Column; X++)
+				for (int X = 0; X < game.Column; X++)
 					builder.Append("━━");
 				builder.Append("┛");
 				builder.AppendLine();
 				Console.WriteLine(builder);
 			}
 
+			static void PrintFailInfo(object sender, EventArgs eventArgs)
+			{
+				Console.WriteLine("You Lose!");
+			}
 		}
 	}
 }
