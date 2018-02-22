@@ -1,5 +1,5 @@
-# Tetris(alpha 0.1)
+# Tetris
 A simple and traditional Game: Tetris
 
 Todo：
-1. 提示下个方块
+UI
