@@ -17,14 +17,13 @@ namespace WindowsFormsApp1
 		public int Column { get => Board.Column; }
 		public int InvisibleRow { get => Board.MaxRow; }
 		public int Score { get; private set; } = 0;
-		public int Level { get => Math.Min(Score / 50 + 1, 19); }
+		public int Level { get => Math.Min(Score / 120 + 1, 8); }
 		public int EliminatedLine { get; private set; } = 0;
 		public string PlayingTime {get => $"{playingTime.Hour.ToString().PadLeft(2,'0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
 		public bool isFailing;
 
 		private DateTime playingTime { get; set; }
 		private Board board = new Board();
-		private static Random RandomGenerator = new Random();
 
 		public TetrisGame()
 		{
@@ -119,7 +118,10 @@ namespace WindowsFormsApp1
 		}
 		private void IncreaseScore(object sender, int increment)
 		{
+			int oldScore = Score;
 			Score += increment;
+			int newScore = Score;
+			if (!board.CanSpecialPieceGenerate && (oldScore / 100 < newScore / 100)) board.CanSpecialPieceGenerate = true;
 		}
 		private void LoseGame()
 		{
@@ -131,7 +133,7 @@ namespace WindowsFormsApp1
 			while (!isFailing)
 			{
 				Falling();
-				Thread.Sleep(1000 - 50 * Level);
+				Thread.Sleep(500 - 50 * Level);
 				//Thread.Sleep(200);
 			}
 		}
@@ -145,6 +147,8 @@ namespace WindowsFormsApp1
 			public event EventHandler<int> IncreaseScoreEvent;
 			public event Action LoseGameEvent;
 			public Color?[,] board = new Color?[Column, Row];
+			public bool CanSpecialPieceGenerate { get; set; } = false;
+			private static Random RandomGenerator = new Random();
 			private Piece NextPiece { get; set; }
 			private Piece CurrentPiece { get; set; }
 			private (int CoordX, int CoordY) CurrentPieceCenter
@@ -225,8 +229,12 @@ namespace WindowsFormsApp1
 				if (IsLegalPieceMove() == false)
 				{
 					CurrentPieceCenter = CurrentPieceCenter.YAdd(1);
-					bool isFailing = DiscardCurrentPiece();
-					if (!isFailing) ChangeCurrentPiece();
+					bool isFailing = CurrentPiece.Discard(this);
+					if (!isFailing)
+					{
+						Eliminate();
+						ChangeCurrentPiece();
+					}
 					return false;
 				}
 				else
@@ -262,7 +270,8 @@ namespace WindowsFormsApp1
 			}
 			public void Start()
 			{
-				NextPiece = NewPiece((Piece.PieceType)(RandomGenerator.Next() % Piece.PieceTypeNumber));
+				NextPiece = NewPiece(RandomGenerator.Next());
+				//NextPiece = NewPiece(Piece.PieceType.ShapeV);
 				ChangeCurrentPiece();
 			}
 
@@ -333,8 +342,10 @@ namespace WindowsFormsApp1
 					}
 				}
 			}
-			private Piece NewPiece(Piece.PieceType type)
+			private Piece NewPiece(int t)
 			{
+				int mod = CanSpecialPieceGenerate ? Piece.AllPieceTypeNumber : Piece.NormalPieceTypeNumber;
+				Piece.PieceType type = (Piece.PieceType)(t % mod);
 				Piece newPiece;
 				switch (type)
 				{
@@ -359,37 +370,27 @@ namespace WindowsFormsApp1
 					case Piece.PieceType.ShapeO:
 						newPiece = new PieceO(RandomGenerator.Next());
 						break;
+					case Piece.PieceType.ShapeV:
+						newPiece = new PieceV(RandomGenerator.Next());
+						CanSpecialPieceGenerate = false;
+						break;
+					case Piece.PieceType.ShapeX:
+						newPiece = new PieceX(RandomGenerator.Next());
+						CanSpecialPieceGenerate = false;
+						break;
 					default:
 						newPiece = null;
 						break;
 				}
 				return newPiece;
 			}
-			private bool DiscardCurrentPiece()
-			{
-				bool isFailing = false;
-				int CoordX, CoordY;
-				foreach (var square in CurrentPiece.Offset)
-				{
-					CoordX = CurrentPieceCenter.CoordX + square.OffSetX;
-					CoordY = CurrentPieceCenter.CoordY + square.OffSetY;
-					if (IsInBoard(CoordX, CoordY))
-						board[CoordX, CoordY] = CurrentPiece.Color;
-					else
-					{
-						isFailing = true;
-						LoseGameEvent();
-					}
-				}
-				if (!isFailing) Eliminate();
-				return isFailing;
-			}
 			private void ChangeCurrentPiece()
 			{
 				CurrentPiece = NextPiece;
 				int YOffset = -CurrentPiece.Offset.Min(t => t.OffSetY);
 				CurrentPieceCenter = (Column / 2 - RandomGenerator.Next() % 2, Row + YOffset);
-				NextPiece = NewPiece((Piece.PieceType)(RandomGenerator.Next() % Piece.PieceTypeNumber));
+				NextPiece = NewPiece(RandomGenerator.Next());
+				//NextPiece = NewPiece(Piece.PieceType.ShapeX);
 			}
 			IEnumerable<int> TryMoveRightOffset(bool isMoveLeftFirst)
 			{
@@ -401,9 +402,11 @@ namespace WindowsFormsApp1
 
 			}
 
+
 			public abstract class Piece
 			{
-				public static int PieceTypeNumber = 7;
+				public static int NormalPieceTypeNumber = 7;
+				public static int AllPieceTypeNumber = 9;
 				public enum PieceType
 				{
 					ShapeI,
@@ -413,17 +416,32 @@ namespace WindowsFormsApp1
 					ShapeS,
 					ShapeZ,
 					ShapeO,
+					ShapeV,
 					ShapeX,
-					ShapeDot,
-					ShapeSquareO,
-					ShapeN,
 				}
 				public Color Color { get; protected set; }
 				public (int CoordX, int CoordY) CenterInFourByFourTable { get; protected set; } //图案在4*4的表格上的中心
 				public (int OffSetX, int OffSetY)[] Offset { get; protected set; }  //图案相对背板中心的偏移量
 				public abstract void ClockwiseRotate(Board board);
 				public abstract void AntiClockwiseRotate(Board board);
-				public virtual void SpecialAbility(Board board) { }
+				public virtual bool Discard(Board board)
+				{
+					bool isFailing = false;
+					int CoordX, CoordY;
+					foreach (var square in board.CurrentPiece.Offset)
+					{
+						CoordX = board.CurrentPieceCenter.CoordX + square.OffSetX;
+						CoordY = board.CurrentPieceCenter.CoordY + square.OffSetY;
+						if (IsInBoard(CoordX, CoordY))
+							board.board[CoordX, CoordY] = this.Color;
+						else
+						{
+							isFailing = true;
+							board.LoseGameEvent();
+						}
+					}
+					return isFailing;
+				}
 				public Color?[,] GetFourByFourTable()
 				{
 					Color?[,] newBoard = new Color?[4, 4];
@@ -665,6 +683,102 @@ namespace WindowsFormsApp1
 				public override void ClockwiseRotate(Board board)
 				{
 					Cursor = Cursor + 1;
+				}
+			}
+			public class PieceV : Piece
+			{
+				public PieceV()
+				{
+					Color = Color.Olive;
+					CenterInFourByFourTable = (1, 0);
+					Offset = new[] { (-1, 1), (0, 0), (1, 1) };
+				}
+				public PieceV(int rotationTimes) : this() { }
+
+				public override void AntiClockwiseRotate(Board board)
+				{
+					//do nothing
+					return;
+				}
+
+				public override void ClockwiseRotate(Board board)
+				{
+					//do nothing
+					return;
+				}
+				public override bool Discard(Board board)
+				{
+					bool isFailing = false;
+					int CoordX, CoordY;
+					for (int i = 0; i < 3; i++)
+					{
+						for (int j = i - 2; j <= 2 - i; j++)
+						{
+							CoordX = board.CurrentPieceCenter.CoordX + j;
+							CoordY = board.CurrentPieceCenter.CoordY - i;
+							if(IsInBoard(CoordX,CoordY))
+							{
+								board.board[CoordX, CoordY] = this.Color;
+							}
+							else
+							{
+								if (CoordY >= Row)
+								{
+									board.LoseGameEvent();
+									isFailing = true;
+								}
+							}
+						}
+					}
+					return isFailing;
+				}
+			}
+			public class PieceX : Piece
+			{
+				public PieceX()
+				{
+					Color = Color.White;
+					CenterInFourByFourTable = (1, 1);
+					Offset = new[] { (-1, 1), (0, 0), (1, 1), (-1, -1), (1, -1) };
+				}
+				public PieceX(int rotationTimes) : this() { }
+
+				public override void AntiClockwiseRotate(Board board)
+				{
+					//do nothing
+					return;
+				}
+
+				public override void ClockwiseRotate(Board board)
+				{
+					//do nothing
+					return;
+				}
+				public override bool Discard(Board board)
+				{
+					bool isFailing = false;
+					int CoordX, CoordY;
+					for (int i = -2; i < 2; i++)
+					{
+						for (int j = -2; j <= 2; j++)
+						{
+							CoordX = board.CurrentPieceCenter.CoordX + j;
+							CoordY = board.CurrentPieceCenter.CoordY + i;
+							if (IsInBoard(CoordX, CoordY))
+							{
+								board.board[CoordX, CoordY] = null;
+							}
+							else
+							{
+								if (CoordY >= Row)
+								{
+									board.LoseGameEvent();
+									isFailing = true;
+								}
+							}
+						}
+					}
+					return isFailing;
 				}
 			}
 		}
