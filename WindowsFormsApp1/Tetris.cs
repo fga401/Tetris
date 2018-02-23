@@ -3,6 +3,8 @@ using System.Drawing;
 using System.Threading;
 using System.Collections.Generic;
 using System.Linq;
+using System.Media;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,6 +15,7 @@ namespace WindowsFormsApp1
 		//public const int SquareDPIWidth = 30;
 		public event EventHandler PaintEvent;
 		public event EventHandler LoseGameEvent;
+		public event EventHandler<Stream> PlaySoundEffectEvent;
 		public int Row { get => Board.Row; }
 		public int Column { get => Board.Column; }
 		public int InvisibleRow { get => Board.MaxRow; }
@@ -22,6 +25,7 @@ namespace WindowsFormsApp1
 		public string PlayingTime {get => $"{playingTime.Hour.ToString().PadLeft(2,'0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
 		public bool isFailed;
 		public bool isPause;
+		public bool isStart;
 
 		private DateTime playingTime { get; set; }
 		private Board board = new Board();
@@ -33,6 +37,7 @@ namespace WindowsFormsApp1
 			board.LineEliminateEvent += LineEliminate;
 			board.IncreaseScoreEvent += IncreaseScore;
 			board.LoseGameEvent += LoseGame;
+			this.PlaySoundEffectEvent = PlaySoundEffect;
 		}
 		public TetrisGame(EventHandler paintEvent) : this()
 		{
@@ -49,45 +54,43 @@ namespace WindowsFormsApp1
 		public void ClockwiseRotate()
 		{
 			if (!isPause && board.ClockwiseRotate())
-				lock (PaintEvent)
-				{
-					PaintEvent(this, null);
-				}
+			{
+				PaintEvent(this, null);
+				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+			}
 		}
 		public void AntiClockwiseRotate()
 		{
 			if (!isPause && board.AntiClockwiseRotate())
-				lock (PaintEvent)
-				{
-					PaintEvent(this, null);
-				}
+			{
+				PaintEvent(this, null);
+				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+			}
 		}
 		public void FallToBottom()
 		{
 			if(!isPause)
 			{
 				while (board.Falling()) ;
-				lock (PaintEvent)
-				{
-					if (!isFailed) PaintEvent(this, null);
-				}
+				PaintEvent(this, null);
+				//PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
 			}		
 		}
 		public void MoveLeft()
 		{
 			if (!isPause && board.MoveLeft(1))
-				lock (PaintEvent)
-				{
-					PaintEvent(this, null);
-				}
+			{
+				PaintEvent(this, null);
+				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+			}
 		}
 		public void MoveRight()
 		{
 			if (!isPause && board.MoveRight(1))
-				lock (PaintEvent)
-				{
-					PaintEvent(this, null);
-				}
+			{
+				PaintEvent(this, null);
+				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+			}
 		}
 		public void Initialize()
 		{
@@ -96,6 +99,7 @@ namespace WindowsFormsApp1
 			playingTime = new DateTime(1, 1, 1, 0, 0, 0);
 			isFailed = false;
 			isPause = true;
+			isStart = false;
 			board.Initialize();
 			if (fallingThread == null)
 			{
@@ -108,11 +112,20 @@ namespace WindowsFormsApp1
 				timingThread.Start();
 			}
 			PaintEvent(this, null);
-			board.Start();
+		}
+		public void Start()
+		{
+			if(isStart == false)
+			{
+				isStart = true;
+				isPause = false;
+				board.Start();
+				PaintEvent(this, null);
+			}
 		}
 		public void Pause()
 		{
-			isPause = !isPause;
+			if (isStart) isPause = !isPause;
 		}
 		public void Dispose()
 		{
@@ -120,6 +133,16 @@ namespace WindowsFormsApp1
 			timingThread?.Abort();
 		}
 
+		private void PlaySoundEffect(object sender, Stream stream)
+		{
+			try
+			{
+				SoundPlayer sound = new SoundPlayer(stream);
+				sound.Play();
+			}
+			finally
+			{  }
+		}
 		private void Falling()
 		{
 			if (board.Falling())
@@ -139,6 +162,8 @@ namespace WindowsFormsApp1
 		private void LineEliminate(object sender, int increment)
 		{
 			EliminatedLine += increment;
+			Stream s = increment == 0 ? WindowsFormsApp1.Properties.Resources.Change : WindowsFormsApp1.Properties.Resources.Eliminate;
+			PlaySoundEffectEvent(this, s);
 		}
 		private void IncreaseScore(object sender, int increment)
 		{
@@ -162,8 +187,6 @@ namespace WindowsFormsApp1
 				//Thread.Sleep(50);
 			}
 		}
-
-		
 
 		private sealed class Board
 		{
@@ -433,7 +456,7 @@ namespace WindowsFormsApp1
 
 			}
 
-
+			#region Piece
 			public abstract class Piece
 			{
 				public static int NormalPieceTypeNumber = 7;
@@ -506,7 +529,7 @@ namespace WindowsFormsApp1
 					}
 				}
 
-				public PieceI() { Color = Color.Maroon; }
+				public PieceI() { Color = Color.OrangeRed; }
 				public PieceI(int rotationTimes) : this() { Cursor = rotationTimes; }
 
 				public override void AntiClockwiseRotate(Board board)
@@ -577,7 +600,7 @@ namespace WindowsFormsApp1
 					}
 				}
 
-				public PieceL() { Color = Color.Purple; }
+				public PieceL() { Color = Color.Gold; }
 				public PieceL(int rotationTimes) : this() { Cursor = rotationTimes; }
 
 				public override void AntiClockwiseRotate(Board board)
@@ -768,7 +791,7 @@ namespace WindowsFormsApp1
 			{
 				public PieceX()
 				{
-					Color = Color.White;
+					Color = Color.LightSkyBlue;
 					CenterInFourByFourTable = (1, 1);
 					Offset = new[] { (-1, 1), (0, 0), (1, 1), (-1, -1), (1, -1) };
 				}
@@ -812,6 +835,7 @@ namespace WindowsFormsApp1
 					return isFailing;
 				}
 			}
+			#endregion
 		}
 	}
 	public static class TupleExtendMethod

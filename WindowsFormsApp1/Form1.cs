@@ -20,18 +20,6 @@ namespace WindowsFormsApp1
 		public Form1()
 		{
 			InitializeComponent();
-			game.PaintEvent += PaintTetrisWithDoubleBuffer;
-			game.LoseGameEvent += LoseGame;
-		}
-
-		private void Form1_Paint(object sender, PaintEventArgs e)
-		{
-			InvokePaint(this, null);
-		}
-
-		private void Form1_Load(object sender, EventArgs e)
-		{
-			
 		}
 
 		private void PaintTetrisWithDoubleBuffer(object sender,EventArgs e)
@@ -39,82 +27,103 @@ namespace WindowsFormsApp1
 			BufferedGraphicsContext context = BufferedGraphicsManager.Current;
 			using (BufferedGraphics bufferedGraphics = context.Allocate(this.CreateGraphics(), this.DisplayRectangle))
 			{
-				Graphics graphics = bufferedGraphics.Graphics;
-				//游戏区域
-				graphics.FillRectangle(new SolidBrush(this.BackColor), this.DisplayRectangle);
-				graphics.FillRectangle(Brushes.DimGray, 20, 20, 250, 610);
-				PaintFrame(20, 20, 250, 610);
-				PaintStrip(Brushes.PaleGoldenrod, Brushes.SeaShell, 25, 25, 600, 10);
-				//画方块
-				Color?[,] board = game.GetBoard();
-				for (int X = 0; X < game.Column; X++)
-				{
-					for (int Y = 0; Y < game.Row; Y++)
-					{
-						if (board[X, Y] != null)
-						{
-							PaintPieceSquare(board[X, Y].Value, 25 + X * SquarePixelWidth, 25 + (game.Row - Y - 1) * SquarePixelWidth);
-						}
-					}
-				}
-				//下一块
-				graphics.DrawString("Next Piece:", defaultFont, Brushes.Black, 290, 20);
-				graphics.FillRectangle(Brushes.DimGray, 290, 40, 106, 106);
-				PaintFrame(290, 40, 106, 106);
-				PaintStrip(Brushes.LightGray, Brushes.WhiteSmoke, 295, 45, 96, 4);
-				//下一块方块
-				Color?[,] nextPieceBoard = game.GetNextPieceBoard();
-				for (int X = 0; X < 4; X++)
-				{
-					for (int Y = 0; Y < 4; Y++)
-					{
-						if (nextPieceBoard[X, Y] != null)
-						{
-							PaintPieceSquare(nextPieceBoard[X, Y].Value, 295 + X * SquarePixelWidth, 45 + (4 - Y - 1) * SquarePixelWidth);
-						}
-					}
-				}
+				PaintTetris(bufferedGraphics.Graphics);
 				bufferedGraphics.Render();
-
-				void PaintPieceSquare(Color color, int PixelX, int PixelY, int width = SquarePixelWidth, int height = SquarePixelWidth)
+			}
+		}
+		private void PaintTetris(Graphics graphics)
+		{
+			//游戏区域
+			graphics.FillRectangle(new SolidBrush(Color.BurlyWood), this.DisplayRectangle);
+			graphics.FillRectangle(Brushes.DimGray, 20, 20, 250, 610);
+			PaintFrame(20, 20, 250, 610);
+			PaintStrip(Brushes.PaleGoldenrod, Brushes.SeaShell, 25, 25, 600, 10);
+			//画方块
+			Color?[,] board = game.GetBoard();
+			for (int X = 0; X < game.Column; X++)
+			{
+				for (int Y = 0; Y < game.Row; Y++)
 				{
-					graphics.FillRectangle(new SolidBrush(color), PixelX, PixelY, width, height);
-					graphics.DrawLine(new Pen(Color.FromArgb(63, 255, 255, 255), 1), PixelX + width, PixelY - 1, PixelX + width - 4, PixelY + 3);
-					graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX, PixelY, PixelX + 4, PixelY + 4);
-					graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX + width - 1, PixelY + height - 1, PixelX + width - 4, PixelY + height - 4);
-					graphics.DrawLine(new Pen(Color.FromArgb(63, 15, 15, 15), 1), PixelX, PixelY + height - 1, PixelX + 4, PixelY + height - 5);
-					graphics.FillRectangle(
-						new LinearGradientBrush(
-							new Point(PixelX + SquarePixelWidth, PixelY),
-							new Point(PixelX, PixelY + SquarePixelWidth),
-							Color.FromArgb(0x7F, 0xFF, 0xFF, 0xFF),
-							Color.FromArgb(0x7F, 0x00, 0x00, 0x00)
-							),
-						PixelX, PixelY, width, height);
-					graphics.FillRectangle(new SolidBrush(Color.FromArgb(63, color)), PixelX + 4, PixelY + 4, width - 8, height - 8);
-				}
-				void PaintFrame(int x, int y, int width, int height)
-				{
-					graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + height - 3 } });
-					graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x + 4, Y = y + 4 }, new Point { X = x + width - 5, Y = y + 4 }, new Point { X = x + width - 5, Y = y + height - 5 } });
-					graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x, Y = y + 1 }, new Point { X = x, Y = y + height - 1 }, new Point { X = x + width - 2, Y = y + height - 1 } });
-					graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 3, Y = y + 5 }, new Point { X = x + 3, Y = y + height - 4 }, new Point { X = x + width - 6, Y = y + height - 4 } });
-
-				}
-				void PaintStrip(Brush firstBrush, Brush secondBrush, int x, int y, int height, int stripNumber, int width = SquarePixelWidth)
-				{
-					for (int i = 0; i < stripNumber; i++)
+					if (board[X, Y] != null)
 					{
-						if (i % 2 == 0)
-							graphics.FillRectangle(firstBrush, x + i * width, y, width, height);
-						else
-							graphics.FillRectangle(secondBrush, x + i * width, y, width, height);
+						PaintPieceSquare(board[X, Y].Value, 25 + X * SquarePixelWidth, 25 + (game.Row - Y - 1) * SquarePixelWidth);
 					}
 				}
 			}
+			//下一块
+			graphics.DrawString("Next Piece:", defaultFont, Brushes.Black, 290, 20);
+			graphics.FillRectangle(Brushes.DimGray, 290, 40, 106, 106);
+			PaintFrame(290, 40, 106, 106);
+			PaintStrip(Brushes.LightGray, Brushes.WhiteSmoke, 295, 45, 96, 4);
+			//下一块方块
+			Color?[,] nextPieceBoard = game.GetNextPieceBoard();
+			for (int X = 0; X < 4; X++)
+			{
+				for (int Y = 0; Y < 4; Y++)
+				{
+					if (nextPieceBoard[X, Y] != null)
+					{
+						PaintPieceSquare(nextPieceBoard[X, Y].Value, 295 + X * SquarePixelWidth, 45 + (4 - Y - 1) * SquarePixelWidth);
+					}
+				}
+			}
+			//其他文字信息
+			graphics.DrawString("Score:", defaultFont, Brushes.Black, 290, 170);
+			graphics.DrawString($"{game.Score,8}", defaultFont, Brushes.Black, 290, 190);
+			graphics.DrawString("Line:", defaultFont, Brushes.Black, 290, 230);
+			graphics.DrawString($"{game.EliminatedLine,8}", defaultFont, Brushes.Black, 290, 250);
+			graphics.DrawString("Level:", defaultFont, Brushes.Black, 290, 290);
+			graphics.DrawString($"{game.Level,8}", defaultFont, Brushes.Black, 290, 310);
+			graphics.DrawString("Time:", defaultFont, Brushes.Black, 290, 350);
+			graphics.DrawString($"{game.PlayingTime,12}", defaultFont, Brushes.Black, 290, 370);
+
+			void PaintPieceSquare(Color color, int PixelX, int PixelY, int width = SquarePixelWidth, int height = SquarePixelWidth)
+			{
+				graphics.FillRectangle(new SolidBrush(color), PixelX, PixelY, width, height);
+				graphics.DrawLine(new Pen(Color.FromArgb(63, 255, 255, 255), 1), PixelX + width, PixelY - 1, PixelX + width - 4, PixelY + 3);
+				graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX, PixelY, PixelX + 4, PixelY + 4);
+				graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX + width - 1, PixelY + height - 1, PixelX + width - 4, PixelY + height - 4);
+				graphics.DrawLine(new Pen(Color.FromArgb(63, 15, 15, 15), 1), PixelX, PixelY + height - 1, PixelX + 4, PixelY + height - 5);
+				graphics.FillRectangle(
+					new LinearGradientBrush(
+						new Point(PixelX + SquarePixelWidth, PixelY),
+						new Point(PixelX, PixelY + SquarePixelWidth),
+						Color.FromArgb(0x7F, 0xFF, 0xFF, 0xFF),
+						Color.FromArgb(0x7F, 0x00, 0x00, 0x00)
+						),
+					PixelX, PixelY, width, height);
+				graphics.FillRectangle(new SolidBrush(Color.FromArgb(63, color)), PixelX + 4, PixelY + 4, width - 8, height - 8);
+				//graphics.DrawLine(new Pen(Color.FromArgb(63, 255, 255, 255), 1), PixelX + 4, PixelY + 3, PixelX + width - 4, PixelY + 3);
+				//graphics.DrawLine(new Pen(Color.FromArgb(63, 255, 255, 255), 1), PixelX + width - 4, PixelY + height - 5, PixelX + width - 4, PixelY + 3);
+				//graphics.DrawLine(new Pen(Color.FromArgb(63, 15, 15, 15), 1), PixelX + 4, PixelY + 4, PixelX + 4, PixelY + height - 5);
+				//graphics.DrawLine(new Pen(Color.FromArgb(63, 15, 15, 15), 1), PixelX + width - 4, PixelY + height - 5, PixelX + 4, PixelY + height - 5);
+			}
+			void PaintFrame(int x, int y, int width, int height)
+			{
+				graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + height - 3 } });
+				graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x + 4, Y = y + 4 }, new Point { X = x + width - 5, Y = y + 4 }, new Point { X = x + width - 5, Y = y + height - 5 } });
+				graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x, Y = y + 1 }, new Point { X = x, Y = y + height - 1 }, new Point { X = x + width - 2, Y = y + height - 1 } });
+				graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 3, Y = y + 5 }, new Point { X = x + 3, Y = y + height - 4 }, new Point { X = x + width - 6, Y = y + height - 4 } });
+
+			}
+			void PaintStrip(Brush firstBrush, Brush secondBrush, int x, int y, int height, int stripNumber, int width = SquarePixelWidth)
+			{
+				for (int i = 0; i < stripNumber; i++)
+				{
+					if (i % 2 == 0)
+						graphics.FillRectangle(firstBrush, x + i * width, y, width, height);
+					else
+						graphics.FillRectangle(secondBrush, x + i * width, y, width, height);
+				}
+			}
+
 		}
 
-		private void LoseGame(object sender,EventArgs e) { }
+
+		private void LoseGame(object sender,EventArgs e)
+		{
+			PaintTetrisWithDoubleBuffer(this, null);
+		}
 
 		private void Form1_KeyDown(object sender, KeyEventArgs e)
 		{
@@ -145,7 +154,7 @@ namespace WindowsFormsApp1
 					game.ClockwiseRotate();
 					break;
 				case Keys.S:
-					game.Initialize();
+					game.Start();
 					break;
 				default:
 					break;
@@ -155,6 +164,23 @@ namespace WindowsFormsApp1
 		private void Form1_FormClosed(object sender, FormClosedEventArgs e)
 		{
 			game.Dispose();
+		}
+
+		private void Form1_Shown(object sender, EventArgs e)
+		{
+			
+		}
+
+		private void Form1_Load(object sender, EventArgs e)
+		{
+			game.PaintEvent += PaintTetrisWithDoubleBuffer;
+			game.LoseGameEvent += LoseGame;
+			game.Initialize();
+		}
+
+		private void Form1_Paint(object sender, PaintEventArgs e)
+		{
+			PaintTetris(CreateGraphics());
 		}
 	}
 }

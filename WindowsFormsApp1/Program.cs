@@ -95,6 +95,11 @@ namespace WindowsFormsApp1
 							game.Pause();
 							break;
 						}
+					case ConsoleKey.S:
+						{
+							game.Start();
+							break;
+						}
 					default:
 						break;
 				}

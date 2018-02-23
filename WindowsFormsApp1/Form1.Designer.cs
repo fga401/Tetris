@@ -35,11 +35,13 @@
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Inherit;
 			this.BackColor = System.Drawing.Color.BurlyWood;
 			this.ClientSize = new System.Drawing.Size(417, 651);
-			this.DoubleBuffered = true;
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
 			this.Name = "Form1";
+			this.Text = "Tetris";
 			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Form1_FormClosed);
 			this.Load += new System.EventHandler(this.Form1_Load);
+			this.Shown += new System.EventHandler(this.Form1_Shown);
+			this.Paint += new System.Windows.Forms.PaintEventHandler(this.Form1_Paint);
 			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyDown);
 			this.ResumeLayout(false);
 
