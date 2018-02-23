@@ -20,17 +20,13 @@ namespace WindowsFormsApp1
 		public Form1()
 		{
 			InitializeComponent();
-			game.PaintEvent += PaintTetris;
+			game.PaintEvent += PaintTetrisWithDoubleBuffer;
+			game.LoseGameEvent += LoseGame;
 		}
 
 		private void Form1_Paint(object sender, PaintEventArgs e)
 		{
-			Graphics g = e.Graphics;
-		}
-
-		private void timer1_Tick(object sender, EventArgs e)
-		{
-			
+			InvokePaint(this, null);
 		}
 
 		private void Form1_Load(object sender, EventArgs e)
@@ -38,79 +34,86 @@ namespace WindowsFormsApp1
 			
 		}
 
-		private void PaintTetris(object sender,EventArgs e)
+		private void PaintTetrisWithDoubleBuffer(object sender,EventArgs e)
 		{
-			Graphics graphics = CreateGraphics();
-			//游戏区域
-			graphics.FillRectangle(Brushes.DimGray, 20, 20, 250, 610);
-			PaintFrame(20, 20, 250, 610);
-			PaintStrip(Brushes.PaleGoldenrod, Brushes.SeaShell, 25, 25, 600, 10);
-			//画方块
-			Color?[,] board = game.GetBoard();
-			for (int X = 0; X < game.Column; X++)
+			BufferedGraphicsContext context = BufferedGraphicsManager.Current;
+			using (BufferedGraphics bufferedGraphics = context.Allocate(this.CreateGraphics(), this.DisplayRectangle))
 			{
-				for (int Y = 0; Y < game.Row; Y++)
+				Graphics graphics = bufferedGraphics.Graphics;
+				//游戏区域
+				graphics.FillRectangle(new SolidBrush(this.BackColor), this.DisplayRectangle);
+				graphics.FillRectangle(Brushes.DimGray, 20, 20, 250, 610);
+				PaintFrame(20, 20, 250, 610);
+				PaintStrip(Brushes.PaleGoldenrod, Brushes.SeaShell, 25, 25, 600, 10);
+				//画方块
+				Color?[,] board = game.GetBoard();
+				for (int X = 0; X < game.Column; X++)
 				{
-					if(board[X,Y]!=null)
+					for (int Y = 0; Y < game.Row; Y++)
 					{
-						PaintPieceSquare(board[X, Y].Value, 25 + X * SquarePixelWidth, 25 + (game.Row - Y - 1) * SquarePixelWidth);
+						if (board[X, Y] != null)
+						{
+							PaintPieceSquare(board[X, Y].Value, 25 + X * SquarePixelWidth, 25 + (game.Row - Y - 1) * SquarePixelWidth);
+						}
 					}
 				}
-			}
-			//下一块
-			graphics.DrawString("Next Piece:", defaultFont, Brushes.Black, 290, 20);
-			graphics.FillRectangle(Brushes.DimGray, 290, 40, 106, 106);
-			PaintFrame(290, 40, 106, 106);
-			PaintStrip(Brushes.LightGray, Brushes.WhiteSmoke, 295, 45, 96, 4);
-			//下一块方块
-			Color?[,] nextPieceBoard = game.GetNextPieceBoard();
-			for (int X = 0; X < 4; X++)
-			{
-				for (int Y = 0; Y < 4; Y++)
+				//下一块
+				graphics.DrawString("Next Piece:", defaultFont, Brushes.Black, 290, 20);
+				graphics.FillRectangle(Brushes.DimGray, 290, 40, 106, 106);
+				PaintFrame(290, 40, 106, 106);
+				PaintStrip(Brushes.LightGray, Brushes.WhiteSmoke, 295, 45, 96, 4);
+				//下一块方块
+				Color?[,] nextPieceBoard = game.GetNextPieceBoard();
+				for (int X = 0; X < 4; X++)
 				{
-					if (nextPieceBoard[X, Y] != null)
+					for (int Y = 0; Y < 4; Y++)
 					{
-						PaintPieceSquare(nextPieceBoard[X, Y].Value, 295 + X * SquarePixelWidth, 45 + (4 - Y - 1) * SquarePixelWidth);
+						if (nextPieceBoard[X, Y] != null)
+						{
+							PaintPieceSquare(nextPieceBoard[X, Y].Value, 295 + X * SquarePixelWidth, 45 + (4 - Y - 1) * SquarePixelWidth);
+						}
 					}
 				}
-			}
+				bufferedGraphics.Render();
 
-			void PaintPieceSquare(Color color,int PixelX, int PixelY, int width = SquarePixelWidth, int height = SquarePixelWidth)
-			{
-				graphics.FillRectangle(new SolidBrush(color), PixelX, PixelY, width, height);
-				graphics.DrawLine(new Pen(Color.FromArgb(63, 255, 255, 255), 1), PixelX + width, PixelY - 1, PixelX + width - 4, PixelY + 3);
-				graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX, PixelY, PixelX + 4, PixelY + 4);
-				graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX + width - 1, PixelY + height - 1, PixelX + width - 4, PixelY + height - 4);
-				graphics.DrawLine(new Pen(Color.FromArgb(63, 15, 15, 15), 1), PixelX, PixelY + height - 1, PixelX + 4, PixelY + height - 5);
-				graphics.FillRectangle(
-					new LinearGradientBrush(
-						new Point(PixelX + SquarePixelWidth, PixelY),
-						new Point(PixelX, PixelY + SquarePixelWidth),
-						Color.FromArgb(0x7F,0xFF, 0xFF, 0xFF),
-						Color.FromArgb(0x7F,0x00, 0x00, 0x00)
-						), 
-					PixelX, PixelY, width, height);
-				graphics.FillRectangle(new SolidBrush(Color.FromArgb(63, color)), PixelX + 4, PixelY + 4, width - 8, height - 8);
-			}
-			void PaintFrame(int x, int y, int width, int height)
-			{
-				graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + height - 3 } });
-				graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x + 4, Y = y + 4 }, new Point { X = x + width - 5, Y = y + 4 }, new Point { X = x + width - 5, Y = y + height - 5 } });
-				graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x, Y = y + 1 }, new Point { X = x, Y = y + height - 1 }, new Point { X = x + width - 2, Y = y + height - 1 } });
-				graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 3, Y = y + 5 }, new Point { X = x + 3, Y = y + height - 4 }, new Point { X = x + width - 6, Y = y + height - 4 } });
-
-			}
-			void PaintStrip(Brush firstBrush, Brush secondBrush,int x, int y, int height, int stripNumber,int width = SquarePixelWidth)
-			{
-				for (int i = 0; i < stripNumber; i++)
+				void PaintPieceSquare(Color color, int PixelX, int PixelY, int width = SquarePixelWidth, int height = SquarePixelWidth)
 				{
-					if (i % 2 == 0)
-						graphics.FillRectangle(firstBrush, x + i * width, y, width, height);
-					else
-						graphics.FillRectangle(secondBrush, x + i * width, y, width, height);
+					graphics.FillRectangle(new SolidBrush(color), PixelX, PixelY, width, height);
+					graphics.DrawLine(new Pen(Color.FromArgb(63, 255, 255, 255), 1), PixelX + width, PixelY - 1, PixelX + width - 4, PixelY + 3);
+					graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX, PixelY, PixelX + 4, PixelY + 4);
+					graphics.DrawLine(new Pen(Color.FromArgb(95, 127, 127, 127), 1), PixelX + width - 1, PixelY + height - 1, PixelX + width - 4, PixelY + height - 4);
+					graphics.DrawLine(new Pen(Color.FromArgb(63, 15, 15, 15), 1), PixelX, PixelY + height - 1, PixelX + 4, PixelY + height - 5);
+					graphics.FillRectangle(
+						new LinearGradientBrush(
+							new Point(PixelX + SquarePixelWidth, PixelY),
+							new Point(PixelX, PixelY + SquarePixelWidth),
+							Color.FromArgb(0x7F, 0xFF, 0xFF, 0xFF),
+							Color.FromArgb(0x7F, 0x00, 0x00, 0x00)
+							),
+						PixelX, PixelY, width, height);
+					graphics.FillRectangle(new SolidBrush(Color.FromArgb(63, color)), PixelX + 4, PixelY + 4, width - 8, height - 8);
+				}
+				void PaintFrame(int x, int y, int width, int height)
+				{
+					graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + 1 }, new Point { X = x + width - 2, Y = y + height - 3 } });
+					graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x + 4, Y = y + 4 }, new Point { X = x + width - 5, Y = y + 4 }, new Point { X = x + width - 5, Y = y + height - 5 } });
+					graphics.DrawLines(Pens.Black, new Point[] { new Point { X = x, Y = y + 1 }, new Point { X = x, Y = y + height - 1 }, new Point { X = x + width - 2, Y = y + height - 1 } });
+					graphics.DrawLines(Pens.White, new Point[] { new Point { X = x + 3, Y = y + 5 }, new Point { X = x + 3, Y = y + height - 4 }, new Point { X = x + width - 6, Y = y + height - 4 } });
+
+				}
+				void PaintStrip(Brush firstBrush, Brush secondBrush, int x, int y, int height, int stripNumber, int width = SquarePixelWidth)
+				{
+					for (int i = 0; i < stripNumber; i++)
+					{
+						if (i % 2 == 0)
+							graphics.FillRectangle(firstBrush, x + i * width, y, width, height);
+						else
+							graphics.FillRectangle(secondBrush, x + i * width, y, width, height);
+					}
 				}
 			}
 		}
+
 		private void LoseGame(object sender,EventArgs e) { }
 
 		private void Form1_KeyDown(object sender, KeyEventArgs e)
@@ -118,7 +121,7 @@ namespace WindowsFormsApp1
 			switch (e.KeyData)
 			{
 				case Keys.P:
-					PaintTetris(game,null);
+					PaintTetrisWithDoubleBuffer(game,null);
 					break;
 				case Keys.Space:
 					game.Pause();
