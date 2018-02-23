@@ -1,5 +1,5 @@
-﻿#define CONSOLE_OUTPUT
-
+﻿//#define CONSOLE_OUTPUT
+#define WINFORM_OUTPUT
 using System;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
@@ -28,9 +28,11 @@ namespace WindowsFormsApp1
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 			Application.Run(new Form1());
-#endif 
+#endif
+#if CONSOLE_OUTPUT
 			Console.ReadKey();
 			ConsoleGame.FreeConsole();
+#endif
 		}
 
 		static class ConsoleGame
@@ -46,8 +48,8 @@ namespace WindowsFormsApp1
 				TetrisGame game = new TetrisGame();
 				game.PaintEvent += ConsolePaintBoard;
 				game.LoseGameEvent += PrintFailInfo;
-				game.Start();
-				while(!game.isFailing)
+				game.Initialize();
+				while(!game.isFailed)
 				{
 					InputMonitor(game);
 				}
@@ -86,6 +88,11 @@ namespace WindowsFormsApp1
 					case ConsoleKey.UpArrow:
 						{
 							game.ClockwiseRotate();
+							break;
+						}
+					case ConsoleKey.Spacebar:
+						{
+							game.Pause();
 							break;
 						}
 					default:

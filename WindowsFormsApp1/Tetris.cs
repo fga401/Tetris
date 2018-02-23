@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace WindowsFormsApp1
 {
-	public sealed class TetrisGame
+	public sealed class TetrisGame : IDisposable
 	{
 		//public const int SquareDPIWidth = 30;
 		public event EventHandler PaintEvent;
@@ -20,10 +20,13 @@ namespace WindowsFormsApp1
 		public int Level { get => Math.Min(Score / 120 + 1, 8); }
 		public int EliminatedLine { get; private set; } = 0;
 		public string PlayingTime {get => $"{playingTime.Hour.ToString().PadLeft(2,'0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
-		public bool isFailing;
+		public bool isFailed;
+		public bool isPause;
 
 		private DateTime playingTime { get; set; }
 		private Board board = new Board();
+		private Thread fallingThread;
+		private Thread timingThread;
 
 		public TetrisGame()
 		{
@@ -45,7 +48,7 @@ namespace WindowsFormsApp1
 		}
 		public void ClockwiseRotate()
 		{
-			if (board.ClockwiseRotate())
+			if (!isPause && board.ClockwiseRotate())
 				lock (PaintEvent)
 				{
 					PaintEvent(this, null);
@@ -53,7 +56,7 @@ namespace WindowsFormsApp1
 		}
 		public void AntiClockwiseRotate()
 		{
-			if (board.AntiClockwiseRotate())
+			if (!isPause && board.AntiClockwiseRotate())
 				lock (PaintEvent)
 				{
 					PaintEvent(this, null);
@@ -61,15 +64,18 @@ namespace WindowsFormsApp1
 		}
 		public void FallToBottom()
 		{
-			while (board.Falling()) ;
-			lock (PaintEvent)
+			if(!isPause)
 			{
-				if (!isFailing) PaintEvent(this, null);
-			}
+				while (board.Falling()) ;
+				lock (PaintEvent)
+				{
+					if (!isFailed) PaintEvent(this, null);
+				}
+			}		
 		}
 		public void MoveLeft()
 		{
-			if (board.MoveLeft(1))
+			if (!isPause && board.MoveLeft(1))
 				lock (PaintEvent)
 				{
 					PaintEvent(this, null);
@@ -77,23 +83,41 @@ namespace WindowsFormsApp1
 		}
 		public void MoveRight()
 		{
-			if (board.MoveRight(1))
+			if (!isPause && board.MoveRight(1))
 				lock (PaintEvent)
 				{
 					PaintEvent(this, null);
 				}
 		}
-		public void Start()
+		public void Initialize()
 		{
 			Score = 0;
 			EliminatedLine = 0;
 			playingTime = new DateTime(1, 1, 1, 0, 0, 0);
-			isFailing = false;
+			isFailed = false;
+			isPause = true;
+			board.Initialize();
+			if (fallingThread == null)
+			{
+				fallingThread = new Thread(FallingThread);
+				fallingThread.Start();
+			}
+			if (timingThread == null)
+			{
+				timingThread = new Thread(TimingThread);
+				timingThread.Start();
+			}
+			PaintEvent(this, null);
 			board.Start();
-			Thread fallingThread = new Thread(FallingThread);
-			fallingThread.Start();
-			Thread timingThread = new Thread(TimingThread);
-			timingThread.Start();
+		}
+		public void Pause()
+		{
+			isPause = !isPause;
+		}
+		public void Dispose()
+		{
+			fallingThread?.Abort();
+			timingThread?.Abort();
 		}
 
 		private void Falling()
@@ -101,15 +125,15 @@ namespace WindowsFormsApp1
 			if (board.Falling())
 				lock (PaintEvent)
 				{
-					if (!isFailing) PaintEvent(this, null);
+					if (!isFailed) PaintEvent(this, null);
 				}
 		}
 		private void TimingThread()
 		{
-			while(!isFailing)
+			while(!isFailed)
 			{
 				Thread.Sleep(1000);
-				playingTime = playingTime.AddSeconds(1);
+				if (!isPause) playingTime = playingTime.AddSeconds(1);
 			}		
 		}
 		private void LineEliminate(object sender, int increment)
@@ -125,18 +149,21 @@ namespace WindowsFormsApp1
 		}
 		private void LoseGame()
 		{
-			if (isFailing == false) LoseGameEvent(this, null);
-			isFailing = true;
+			if (isFailed == false) LoseGameEvent(this, null);
+			isPause = true;
+			isFailed = true;
 		}
 		private void FallingThread()
 		{
-			while (!isFailing)
+			while (!isFailed)
 			{
-				Falling();
+				if (!isPause) Falling();
 				Thread.Sleep(500 - 50 * Level);
-				//Thread.Sleep(200);
+				//Thread.Sleep(50);
 			}
 		}
+
+		
 
 		private sealed class Board
 		{
@@ -229,8 +256,8 @@ namespace WindowsFormsApp1
 				if (IsLegalPieceMove() == false)
 				{
 					CurrentPieceCenter = CurrentPieceCenter.YAdd(1);
-					bool isFailing = CurrentPiece.Discard(this);
-					if (!isFailing)
+					bool isFailed = CurrentPiece.Discard(this);
+					if (!isFailed)
 					{
 						Eliminate();
 						ChangeCurrentPiece();
@@ -268,10 +295,14 @@ namespace WindowsFormsApp1
 					return true;
 				}
 			}
-			public void Start()
+			public void Initialize()
 			{
 				NextPiece = NewPiece(RandomGenerator.Next());
-				//NextPiece = NewPiece(Piece.PieceType.ShapeV);
+				ChangeCurrentPiece();
+				NextPiece = NewPiece(RandomGenerator.Next());
+			}
+			public void Start()
+			{
 				ChangeCurrentPiece();
 			}
 
@@ -511,7 +542,7 @@ namespace WindowsFormsApp1
 					}
 				}
 
-				public PieceJ() { Color = Color.Silver; }
+				public PieceJ() { Color = Color.DarkViolet; }
 				public PieceJ(int rotationTimes) : this() { Cursor = rotationTimes; }
 
 				public override void AntiClockwiseRotate(Board board)
