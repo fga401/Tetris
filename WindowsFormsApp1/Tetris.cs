@@ -12,7 +12,6 @@ namespace WindowsFormsApp1
 {
 	public sealed class TetrisGame : IDisposable
 	{
-		//public const int SquareDPIWidth = 30;
 		public event EventHandler PaintEvent;
 		public event EventHandler LoseGameEvent;
 		public event EventHandler<Stream> PlaySoundEffectEvent;
@@ -23,9 +22,15 @@ namespace WindowsFormsApp1
 		public int Level { get => Math.Min(Score / 120 + 1, 8); }
 		public int EliminatedLine { get; private set; } = 0;
 		public string PlayingTime {get => $"{playingTime.Hour.ToString().PadLeft(2,'0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
-		public bool isFailed;
-		public bool isPause;
-		public bool isStart;
+        public States State;
+        public enum States
+        {
+            Ready,
+            Paused,
+            Playing,
+            Losing,
+        }
+		public bool hasEliminatedRow;
 
 		private DateTime playingTime { get; set; }
 		private Board board = new Board();
@@ -39,10 +44,6 @@ namespace WindowsFormsApp1
 			board.LoseGameEvent += LoseGame;
 			this.PlaySoundEffectEvent = PlaySoundEffect;
 		}
-		public TetrisGame(EventHandler paintEvent) : this()
-		{
-			PaintEvent = paintEvent;
-		}
 		public Color?[,] GetNextPieceBoard()
 		{
 			return board.GetFourByFourTable();
@@ -53,7 +54,7 @@ namespace WindowsFormsApp1
 		}
 		public void ClockwiseRotate()
 		{
-			if (!isPause && board.ClockwiseRotate())
+			if (State == States.Playing && board.ClockwiseRotate())
 			{
 				PaintEvent(this, null);
 				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
@@ -61,7 +62,7 @@ namespace WindowsFormsApp1
 		}
 		public void AntiClockwiseRotate()
 		{
-			if (!isPause && board.AntiClockwiseRotate())
+			if (State == States.Playing && board.AntiClockwiseRotate())
 			{
 				PaintEvent(this, null);
 				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
@@ -69,16 +70,23 @@ namespace WindowsFormsApp1
 		}
 		public void FallToBottom()
 		{
-			if(!isPause)
+			if(State == States.Playing)
 			{
 				while (board.Falling()) ;
 				PaintEvent(this, null);
-				//PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+				if(!hasEliminatedRow)
+				{
+					PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+				}
+				else
+				{
+					hasEliminatedRow = false;
+				}
 			}		
 		}
 		public void MoveLeft()
 		{
-			if (!isPause && board.MoveLeft(1))
+			if (State == States.Playing && board.MoveLeft(1))
 			{
 				PaintEvent(this, null);
 				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
@@ -86,47 +94,74 @@ namespace WindowsFormsApp1
 		}
 		public void MoveRight()
 		{
-			if (!isPause && board.MoveRight(1))
+			if (State == States.Playing && board.MoveRight(1))
 			{
 				PaintEvent(this, null);
 				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
 			}
 		}
-		public void Initialize()
+		public void Initialize(int Level)
 		{
 			Score = 0;
 			EliminatedLine = 0;
 			playingTime = new DateTime(1, 1, 1, 0, 0, 0);
-			isFailed = false;
-			isPause = true;
-			isStart = false;
+            State = States.Ready;
 			board.Initialize();
-			if (fallingThread == null)
-			{
-				fallingThread = new Thread(FallingThread);
-				fallingThread.Start();
-			}
-			if (timingThread == null)
-			{
-				timingThread = new Thread(TimingThread);
-				timingThread.Start();
-			}
 			PaintEvent(this, null);
 		}
+        public void Load() { throw new NotImplementedException(); }
 		public void Start()
 		{
-			if(isStart == false)
+			if(State == States.Ready)
 			{
-				isStart = true;
-				isPause = false;
+				State = States.Playing;
+				fallingThread = new Thread(FallingThread);
+				timingThread = new Thread(TimingThread);
+				fallingThread.Start();
+				timingThread.Start();
 				board.Start();
 				PaintEvent(this, null);
-			}
+			}		
 		}
 		public void Pause()
 		{
-			if (isStart) isPause = !isPause;
+			if(State == States.Playing)
+			{ 
+				State = States.Paused;
+				PaintEvent(this, null);
+			}
 		}
+		public void Continue()
+		{
+			if(State==States.Paused)
+			{
+				State = States.Playing;
+				fallingThread = new Thread(FallingThread);
+				timingThread = new Thread(TimingThread);
+				fallingThread.Start();
+				timingThread.Start();
+				PaintEvent(this, null);
+			}
+		}
+		public void Restart()
+		{
+			if(State == States.Losing)
+			{
+				board.Initialize();
+				board.Start();
+				State = States.Playing;
+				Score = 0;
+				EliminatedLine = 0;
+				playingTime = new DateTime(1, 1, 1, 0, 0, 0);
+				fallingThread = new Thread(FallingThread);
+				timingThread = new Thread(TimingThread);
+				fallingThread.Start();
+				timingThread.Start();
+				PaintEvent(this, null);
+			}
+		}
+		public void Save() { throw new NotImplementedException(); }
+		public void Exit() { throw new NotImplementedException(); }
 		public void Dispose()
 		{
 			fallingThread?.Abort();
@@ -143,27 +178,39 @@ namespace WindowsFormsApp1
 			finally
 			{  }
 		}
-		private void Falling()
+		#region FallingThreadFunctions
+        private void FallingThread()
+        {
+            while (State == States.Playing)
+            {
+                if (State == States.Playing) Falling();
+                Thread.Sleep(500 - 50 * Level);
+                //Thread.Sleep(50);
+            }
+        }
+        private void Falling()
 		{
 			if (board.Falling())
-				lock (PaintEvent)
-				{
-					if (!isFailed) PaintEvent(this, null);
-				}
+			{
+				PaintEvent(this, null);
+			}
 		}
+		#endregion
+		#region TimingThreadFunctions
 		private void TimingThread()
 		{
-			while(!isFailed)
+			while(State == States.Playing)
 			{
 				Thread.Sleep(1000);
-				if (!isPause) playingTime = playingTime.AddSeconds(1);
+				playingTime = playingTime.AddSeconds(1);
 			}		
 		}
+		#endregion
 		private void LineEliminate(object sender, int increment)
 		{
 			EliminatedLine += increment;
-			Stream s = increment == 0 ? WindowsFormsApp1.Properties.Resources.Change : WindowsFormsApp1.Properties.Resources.Eliminate;
-			PlaySoundEffectEvent(this, s);
+			PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Eliminate);
+			hasEliminatedRow = true;
 		}
 		private void IncreaseScore(object sender, int increment)
 		{
@@ -174,19 +221,9 @@ namespace WindowsFormsApp1
 		}
 		private void LoseGame()
 		{
-			if (isFailed == false) LoseGameEvent(this, null);
-			isPause = true;
-			isFailed = true;
-		}
-		private void FallingThread()
-		{
-			while (!isFailed)
-			{
-				if (!isPause) Falling();
-				Thread.Sleep(500 - 50 * Level);
-				//Thread.Sleep(50);
-			}
-		}
+			State = States.Losing;
+			LoseGameEvent(this, null);
+		}	
 
 		private sealed class Board
 		{
@@ -195,8 +232,9 @@ namespace WindowsFormsApp1
 			public const int Column = 10;
 			public event EventHandler<int> LineEliminateEvent;
 			public event EventHandler<int> IncreaseScoreEvent;
+			public event Action SuccessfulMoveEvent;
 			public event Action LoseGameEvent;
-			public Color?[,] board = new Color?[Column, Row];
+			public Color?[,] board;
 			public bool CanSpecialPieceGenerate { get; set; } = false;
 			private static Random RandomGenerator = new Random();
 			private Piece NextPiece { get; set; }
@@ -210,7 +248,6 @@ namespace WindowsFormsApp1
 						currentPieceCenter = value;
 				}
 			}
-
 			private (int CoordX, int CoordY) currentPieceCenter;
 			public Board() { }
 
@@ -285,7 +322,11 @@ namespace WindowsFormsApp1
 						Eliminate();
 						ChangeCurrentPiece();
 					}
-					return false;
+					else
+					{
+						LoseGameEvent();
+					}
+					return isFailed;
 				}
 				else
 				{
@@ -320,9 +361,10 @@ namespace WindowsFormsApp1
 			}
 			public void Initialize()
 			{
+				board = new Color?[Column, Row];
+				CanSpecialPieceGenerate = false;
 				NextPiece = NewPiece(RandomGenerator.Next());
 				ChangeCurrentPiece();
-				NextPiece = NewPiece(RandomGenerator.Next());
 			}
 			public void Start()
 			{
@@ -367,8 +409,11 @@ namespace WindowsFormsApp1
 						CoordY++;
 					}
 				}
-				LineEliminateEvent(this, count);
-				IncreaseScoreEvent(this, Column * count);
+				if (count > 0)
+				{
+					LineEliminateEvent(this, count);
+					IncreaseScoreEvent(this, Column * count);
+				}
 
 				bool CheckEliminateRow(int row)
 				{
@@ -491,7 +536,6 @@ namespace WindowsFormsApp1
 						else
 						{
 							isFailing = true;
-							board.LoseGameEvent();
 						}
 					}
 					return isFailing;
@@ -778,7 +822,6 @@ namespace WindowsFormsApp1
 							{
 								if (CoordY >= Row)
 								{
-									board.LoseGameEvent();
 									isFailing = true;
 								}
 							}
@@ -826,7 +869,6 @@ namespace WindowsFormsApp1
 							{
 								if (CoordY >= Row)
 								{
-									board.LoseGameEvent();
 									isFailing = true;
 								}
 							}

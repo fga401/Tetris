@@ -76,6 +76,10 @@ namespace WindowsFormsApp1
 			graphics.DrawString($"{game.Level,8}", defaultFont, Brushes.Black, 290, 310);
 			graphics.DrawString("Time:", defaultFont, Brushes.Black, 290, 350);
 			graphics.DrawString($"{game.PlayingTime,12}", defaultFont, Brushes.Black, 290, 370);
+			graphics.DrawString("Time:", defaultFont, Brushes.Black, 290, 350);
+			graphics.DrawString($"{game.PlayingTime,12}", defaultFont, Brushes.Black, 290, 370);
+			graphics.DrawString("State:", defaultFont, Brushes.Black, 290, 410);
+			graphics.DrawString($"{game.State,12}", defaultFont, Brushes.Black, 290, 430);
 
 			void PaintPieceSquare(Color color, int PixelX, int PixelY, int width = SquarePixelWidth, int height = SquarePixelWidth)
 			{
@@ -129,11 +133,19 @@ namespace WindowsFormsApp1
 		{
 			switch (e.KeyData)
 			{
-				case Keys.P:
-					PaintTetrisWithDoubleBuffer(game,null);
-					break;
 				case Keys.Space:
-					game.Pause();
+				case Keys.P:
+					switch(game.State)
+					{
+						case TetrisGame.States.Playing:
+							game.Pause();
+							break;
+						case TetrisGame.States.Paused:
+							game.Continue();
+							break;
+						default:
+							break;
+					}
 					break;
 				case Keys.Left:
 					game.MoveLeft();
@@ -156,6 +168,10 @@ namespace WindowsFormsApp1
 				case Keys.S:
 					game.Start();
 					break;
+				case Keys.R:
+					game.Restart();
+					PaintTetrisWithDoubleBuffer(this, null);
+					break;
 				default:
 					break;
 			}
@@ -175,7 +191,7 @@ namespace WindowsFormsApp1
 		{
 			game.PaintEvent += PaintTetrisWithDoubleBuffer;
 			game.LoseGameEvent += LoseGame;
-			game.Initialize();
+			game.Initialize(0);
 		}
 
 		private void Form1_Paint(object sender, PaintEventArgs e)

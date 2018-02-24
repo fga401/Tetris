@@ -48,8 +48,8 @@ namespace WindowsFormsApp1
 				TetrisGame game = new TetrisGame();
 				game.PaintEvent += ConsolePaintBoard;
 				game.LoseGameEvent += PrintFailInfo;
-				game.Initialize();
-				while(!game.isFailed)
+				game.Initialize(0);
+				while (game.State == TetrisGame.States.Paused && game.State == TetrisGame.States.Playing)
 				{
 					InputMonitor(game);
 				}
