@@ -34,7 +34,7 @@ namespace WindowsFormsApp1
 			ConsoleGame.FreeConsole();
 #endif
 		}
-
+#if __DEBUG
 		static class ConsoleGame
 		{
 			[DllImport("kernel32.dll")]
@@ -190,5 +190,6 @@ namespace WindowsFormsApp1
 				Console.WriteLine("You Lose!!");
 			}
 		}
+#endif
 	}
 }

@@ -5,16 +5,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Media;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Permissions;
 
 namespace WindowsFormsApp1
 {
-	public sealed class TetrisGame : IDisposable
+	[Serializable]
+	public sealed class TetrisGame : IDisposable, ISerializable
 	{
 		public event EventHandler PaintEvent;
 		public event EventHandler LoseGameEvent;
-		public event EventHandler<Stream> PlaySoundEffectEvent;
 		public int Row { get => Board.Row; }
 		public int Column { get => Board.Column; }
 		public int InvisibleRow { get => Board.MaxRow; }
@@ -36,14 +39,23 @@ namespace WindowsFormsApp1
 		private Board board = new Board();
 		private Thread fallingThread;
 		private Thread timingThread;
-
-		public TetrisGame()
+		private event EventHandler<SoundPlayer> PlaySoundEffectEvent;
+		private TetrisGame()
 		{
 			board.LineEliminateEvent += LineEliminate;
 			board.IncreaseScoreEvent += IncreaseScore;
 			board.LoseGameEvent += LoseGame;
 			this.PlaySoundEffectEvent = PlaySoundEffect;
+			SoundEffectPlayerSet.Change.LoadAsync();
+			SoundEffectPlayerSet.Eliminate.LoadAsync();
 		}
+
+		public static class SoundEffectPlayerSet
+		{
+			public static SoundPlayer Change = new SoundPlayer(WindowsFormsApp1.Properties.Resources.Change);
+			public static SoundPlayer Eliminate = new SoundPlayer(WindowsFormsApp1.Properties.Resources.Eliminate);
+		}
+
 		public Color?[,] GetNextPieceBoard()
 		{
 			return board.GetFourByFourTable();
@@ -57,7 +69,7 @@ namespace WindowsFormsApp1
 			if (State == States.Playing && board.ClockwiseRotate())
 			{
 				PaintEvent(this, null);
-				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+				PlaySoundEffectEvent(this, SoundEffectPlayerSet.Change);
 			}
 		}
 		public void AntiClockwiseRotate()
@@ -65,7 +77,7 @@ namespace WindowsFormsApp1
 			if (State == States.Playing && board.AntiClockwiseRotate())
 			{
 				PaintEvent(this, null);
-				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+				PlaySoundEffectEvent(this, SoundEffectPlayerSet.Change);
 			}
 		}
 		public void FallToBottom()
@@ -76,7 +88,7 @@ namespace WindowsFormsApp1
 				PaintEvent(this, null);
 				if(!hasEliminatedRow)
 				{
-					PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+					PlaySoundEffectEvent(this, SoundEffectPlayerSet.Change);
 				}
 				else
 				{
@@ -89,7 +101,7 @@ namespace WindowsFormsApp1
 			if (State == States.Playing && board.MoveLeft(1))
 			{
 				PaintEvent(this, null);
-				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+				PlaySoundEffectEvent(this, SoundEffectPlayerSet.Change);
 			}
 		}
 		public void MoveRight()
@@ -97,19 +109,30 @@ namespace WindowsFormsApp1
 			if (State == States.Playing && board.MoveRight(1))
 			{
 				PaintEvent(this, null);
-				PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Change);
+				PlaySoundEffectEvent(this, SoundEffectPlayerSet.Change);
 			}
 		}
-		public void Initialize(int Level)
+		public static TetrisGame Initialize(int Level, EventHandler paintEvent, EventHandler loseGameEvent)
 		{
-			Score = 0;
-			EliminatedLine = 0;
-			playingTime = new DateTime(1, 1, 1, 0, 0, 0);
-            State = States.Ready;
-			board.Initialize();
-			PaintEvent(this, null);
+			TetrisGame game = new TetrisGame();
+			game.Score = 0;
+			game.EliminatedLine = 0;
+			game.playingTime = new DateTime(1, 1, 1, 0, 0, 0);
+			game.State = States.Ready;
+			game.board.Initialize();
+			return game;
 		}
-        public void Load() { throw new NotImplementedException(); }
+        public static TetrisGame Load(string path, EventHandler paintEvent, EventHandler loseGameEvent)
+		{
+			BinaryFormatter binaryFormatter = new BinaryFormatter();
+			TetrisGame game;
+			using (FileStream fs = new FileStream(path, FileMode.Open))
+			{
+				game = (TetrisGame)binaryFormatter.Deserialize(fs);
+			}
+			game.State = States.Paused;
+			return game;
+		}
 		public void Start()
 		{
 			if(State == States.Ready)
@@ -121,7 +144,7 @@ namespace WindowsFormsApp1
 				timingThread.Start();
 				board.Start();
 				PaintEvent(this, null);
-			}		
+			}
 		}
 		public void Pause()
 		{
@@ -160,7 +183,22 @@ namespace WindowsFormsApp1
 				PaintEvent(this, null);
 			}
 		}
-		public void Save() { throw new NotImplementedException(); }
+		public void Save(string path)
+		{
+			if (path == null) throw new ArgumentNullException();
+			if(State == States.Playing)
+			{
+				State = States.Paused;
+			}
+			if(State == States.Paused)
+			{
+				BinaryFormatter binaryFormatter = new BinaryFormatter();
+				using (FileStream fs = new FileStream(path, FileMode.Create))
+				{
+					binaryFormatter.Serialize(fs, this);
+				}
+			}
+		}
 		public void Exit() { throw new NotImplementedException(); }
 		public void Dispose()
 		{
@@ -168,15 +206,9 @@ namespace WindowsFormsApp1
 			timingThread?.Abort();
 		}
 
-		private void PlaySoundEffect(object sender, Stream stream)
+		private void PlaySoundEffect(object sender, SoundPlayer player)
 		{
-			try
-			{
-				SoundPlayer sound = new SoundPlayer(stream);
-				sound.Play();
-			}
-			finally
-			{  }
+			player.Play();
 		}
 		#region FallingThreadFunctions
         private void FallingThread()
@@ -209,7 +241,7 @@ namespace WindowsFormsApp1
 		private void LineEliminate(object sender, int increment)
 		{
 			EliminatedLine += increment;
-			PlaySoundEffectEvent(this, WindowsFormsApp1.Properties.Resources.Eliminate);
+			PlaySoundEffectEvent(this, SoundEffectPlayerSet.Eliminate);
 			hasEliminatedRow = true;
 		}
 		private void IncreaseScore(object sender, int increment)
@@ -223,16 +255,37 @@ namespace WindowsFormsApp1
 		{
 			State = States.Losing;
 			LoseGameEvent(this, null);
-		}	
+		}
 
-		private sealed class Board
+		#region ISerializable
+		[SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]
+		public void GetObjectData(SerializationInfo info, StreamingContext context)
+		{
+			info.AddValue("Score", Score);
+			info.AddValue("EliminatedLine", EliminatedLine);
+			info.AddValue("PlayingTime", playingTime);
+			info.AddValue("Board", board);
+		}
+		public TetrisGame(SerializationInfo info, StreamingContext context)
+		{
+			Score = info.GetInt32("Score");
+			EliminatedLine = info.GetInt32("EliminatedLine");
+			playingTime = info.GetDateTime("PlayingTime");
+			board = (Board)info.GetValue("Board",typeof(Board));
+			board.LineEliminateEvent += LineEliminate;
+			board.IncreaseScoreEvent += IncreaseScore;
+			board.LoseGameEvent += LoseGame;
+			this.PlaySoundEffectEvent = PlaySoundEffect;
+		}
+		#endregion
+		[Serializable]
+		private sealed class Board : ISerializable
 		{
 			public const int MaxRow = 30;
 			public const int Row = 25;
 			public const int Column = 10;
 			public event EventHandler<int> LineEliminateEvent;
 			public event EventHandler<int> IncreaseScoreEvent;
-			public event Action SuccessfulMoveEvent;
 			public event Action LoseGameEvent;
 			public Color?[,] board;
 			public bool CanSpecialPieceGenerate { get; set; } = false;
@@ -498,10 +551,28 @@ namespace WindowsFormsApp1
 				yield return 2 * coefficient;
 				yield return -1 * coefficient;
 				yield return -2 * coefficient;
-
 			}
 
+			#region ISerializable
+			public void GetObjectData(SerializationInfo info, StreamingContext context)
+			{
+				info.AddValue("board", board);
+				info.AddValue("CanSpecialPieceGenerate", CanSpecialPieceGenerate);
+				info.AddValue("NextPiece", NextPiece);
+				info.AddValue("CurrentPiece", CurrentPiece);
+				info.AddValue("CurrentPieceCenter", CurrentPieceCenter);
+			}
+			public Board(SerializationInfo info, StreamingContext context)
+			{
+				board = (Color?[,])info.GetValue("board", typeof(Color?[,]));
+				CanSpecialPieceGenerate = info.GetBoolean("CanSpecialPieceGenerate");
+				NextPiece = (Piece)info.GetValue("NextPiece", typeof(Piece));
+				CurrentPiece = (Piece)info.GetValue("CurrentPiece", typeof(Piece));
+				CurrentPieceCenter = ((int,int))info.GetValue("CurrentPieceCenter",typeof((int,int)));
+			}
+			#endregion
 			#region Piece
+			[Serializable]
 			public abstract class Piece
 			{
 				public static int NormalPieceTypeNumber = 7;
@@ -553,6 +624,7 @@ namespace WindowsFormsApp1
 					return newBoard;
 				}
 			}
+			[Serializable]
 			public class PieceI : Piece
 			{
 				private static (int CoordX, int CoordY)[] centerInFourByFourTables = new[] { (1, 1), (1, 1) };
@@ -587,6 +659,7 @@ namespace WindowsFormsApp1
 					Cursor = Cursor + 1;
 				}
 			}
+			[Serializable]
 			public class PieceJ : Piece
 			{
 				private static (int CoordX, int CoordY)[] centerInFourByFourTables = new[] { (2, 1), (1, 1), (1, 2), (2, 2) };
@@ -622,6 +695,7 @@ namespace WindowsFormsApp1
 					Cursor = Cursor + 1;
 				}
 			}
+			[Serializable]
 			public class PieceL : Piece
 			{
 				private static (int CoordX, int CoordY)[] centerInFourByFourTables = new[] { (1, 1), (2, 1), (2, 2), (1, 2) };
@@ -658,6 +732,7 @@ namespace WindowsFormsApp1
 					Cursor = Cursor - 1;
 				}
 			}
+			[Serializable]
 			public class PieceO : Piece
 			{
 				public PieceO()
@@ -680,6 +755,7 @@ namespace WindowsFormsApp1
 					return;
 				}
 			}
+			[Serializable]
 			public class PieceZ : Piece
 			{
 				private static (int CoordX, int CoordY)[] centerInFourByFourTables = new[] { (2, 1), (2, 1) };
@@ -714,6 +790,7 @@ namespace WindowsFormsApp1
 					Cursor = Cursor + 1;
 				}
 			}
+			[Serializable]
 			public class PieceS : Piece
 			{
 				private static (int CoordX, int CoordY)[] centerInFourByFourTables = new[] { (1, 1), (1, 1) };
@@ -748,6 +825,7 @@ namespace WindowsFormsApp1
 					Cursor = Cursor - 1;
 				}
 			}
+			[Serializable]
 			public class PieceT : Piece
 			{
 				private static (int CoordX, int CoordY)[] centerInFourByFourTables = new[] { (1, 1), (1, 2), (2, 1), (1, 1) };
@@ -783,6 +861,7 @@ namespace WindowsFormsApp1
 					Cursor = Cursor + 1;
 				}
 			}
+			[Serializable]
 			public class PieceV : Piece
 			{
 				public PieceV()
@@ -830,6 +909,7 @@ namespace WindowsFormsApp1
 					return isFailing;
 				}
 			}
+			[Serializable]
 			public class PieceX : Piece
 			{
 				public PieceX()

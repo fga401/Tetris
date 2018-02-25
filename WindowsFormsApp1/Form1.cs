@@ -15,7 +15,7 @@ namespace WindowsFormsApp1
 	public partial class Form1 : Form
 	{
 		public const int SquarePixelWidth = 24;
-		private TetrisGame game = new TetrisGame();
+		private TetrisGame game;
 		private Font defaultFont = new Font("Arial Black", 10);
 		public Form1()
 		{
@@ -135,42 +135,60 @@ namespace WindowsFormsApp1
 			{
 				case Keys.Space:
 				case Keys.P:
-					switch(game.State)
+					switch(game?.State)
 					{
+						case TetrisGame.States.Ready:
+							game?.Start();
+							break;
 						case TetrisGame.States.Playing:
-							game.Pause();
+							game?.Pause();
 							break;
 						case TetrisGame.States.Paused:
-							game.Continue();
+							game?.Continue();
 							break;
 						default:
 							break;
 					}
 					break;
 				case Keys.Left:
-					game.MoveLeft();
+					game?.MoveLeft();
 					break;
 				case Keys.Right:
-					game.MoveRight();
+					game?.MoveRight();
 					break;
 				case Keys.Down:
-					game.FallToBottom();
+					game?.FallToBottom();
 					break;
 				case Keys.Up:
-					game.ClockwiseRotate();
+					game?.ClockwiseRotate();
 					break;
 				case Keys.Z:
-					game.AntiClockwiseRotate();
+					game?.AntiClockwiseRotate();
 					break;
 				case Keys.X:
-					game.ClockwiseRotate();
+					game?.ClockwiseRotate();
 					break;
 				case Keys.S:
-					game.Start();
+					game?.Save("data.bin");
 					break;
 				case Keys.R:
-					game.Restart();
+					game?.Restart();
 					PaintTetrisWithDoubleBuffer(this, null);
+					break;
+				case Keys.I:
+					game = TetrisGame.Initialize(0, PaintTetrisWithDoubleBuffer, LoseGame);
+					game.PaintEvent += PaintTetrisWithDoubleBuffer;
+					game.LoseGameEvent += LoseGame;
+					PaintTetrisWithDoubleBuffer(this, null);
+					break;
+				case Keys.L:
+					game = TetrisGame.Load("data.bin", PaintTetrisWithDoubleBuffer, LoseGame);
+					game.PaintEvent += PaintTetrisWithDoubleBuffer;
+					game.LoseGameEvent += LoseGame;
+					PaintTetrisWithDoubleBuffer(this, null);
+					break;
+				case Keys.Q:
+					PaintTetrisWithDoubleBuffer(game, null);
 					break;
 				default:
 					break;
@@ -182,21 +200,9 @@ namespace WindowsFormsApp1
 			game.Dispose();
 		}
 
-		private void Form1_Shown(object sender, EventArgs e)
-		{
-			
-		}
-
-		private void Form1_Load(object sender, EventArgs e)
-		{
-			game.PaintEvent += PaintTetrisWithDoubleBuffer;
-			game.LoseGameEvent += LoseGame;
-			game.Initialize(0);
-		}
-
 		private void Form1_Paint(object sender, PaintEventArgs e)
 		{
-			PaintTetris(CreateGraphics());
+			//PaintTetris(CreateGraphics());
 		}
 	}
 }
