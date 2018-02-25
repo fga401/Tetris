@@ -197,7 +197,8 @@ namespace WindowsFormsApp1
 
 		private void Form1_FormClosed(object sender, FormClosedEventArgs e)
 		{
-			game.Dispose();
+			game?.Dispose();
+			Program.ConsoleGame.FreeConsole();
 		}
 
 		private void Form1_Paint(object sender, PaintEventArgs e)

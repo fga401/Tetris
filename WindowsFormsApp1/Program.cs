@@ -25,6 +25,8 @@ namespace WindowsFormsApp1
 			ConsoleGame.AllocConsole();
 			ConsoleGame.GameStart();
 #elif WINFORM_OUTPUT
+			ConsoleGame.AllocConsole();
+			ConsoleGame.GameStart();
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 			Application.Run(new Form1());
@@ -34,8 +36,8 @@ namespace WindowsFormsApp1
 			ConsoleGame.FreeConsole();
 #endif
 		}
-#if __DEBUG
-		static class ConsoleGame
+#if DEBUG
+		public static class ConsoleGame
 		{
 			[DllImport("kernel32.dll")]
 			public static extern Boolean AllocConsole();
@@ -45,10 +47,7 @@ namespace WindowsFormsApp1
 			public static void GameStart()
 			{
 				Console.WindowHeight = 30;
-				TetrisGame game = new TetrisGame();
-				game.PaintEvent += ConsolePaintBoard;
-				game.LoseGameEvent += PrintFailInfo;
-				game.Initialize(0);
+				TetrisGame game = TetrisGame.Initialize(0, ConsolePaintBoard, PrintFailInfo);
 				while (game.State == TetrisGame.States.Paused && game.State == TetrisGame.States.Playing)
 				{
 					InputMonitor(game);
