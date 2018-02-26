@@ -190,7 +190,6 @@ namespace WindowsFormsApp1
 
 		private void Form1_FormClosed(object sender, FormClosedEventArgs e)
 		{
-			game?.Dispose();
 			Program.ConsoleGame.FreeConsole();
 		}
 
