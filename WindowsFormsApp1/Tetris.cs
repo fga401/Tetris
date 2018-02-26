@@ -25,7 +25,17 @@ namespace WindowsFormsApp1
 		public int EliminatedLine { get; private set; } = 0;
 		private DateTime playingTime { get; set; }
 		public string PlayingTime {get => $"{playingTime.Hour.ToString().PadLeft(2,'0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
-        public States State;
+		private States state;
+        public States State
+		{
+			get => state;
+			set
+			{
+				StateExitEvent(state);
+				state = value;
+				StateEntryEvent(state);
+			}
+		}
         public enum States
         {
             Ready,
@@ -35,21 +45,13 @@ namespace WindowsFormsApp1
         }
 		public bool hasEliminatedRow;
 
-		private Board board = new Board();
+		private Board board;
 		private const int MaxTimeInterval = 2000;
-		private int millisecondClock = 1;
-		private int MillisecondClock
-		{
-			get => millisecondClock;
-			set
-			{
-				millisecondClock = value % MaxTimeInterval;
-			}
-		}
 		private Thread fallingThread;
 		private Thread timingThread;
 		private TetrisGame()
 		{
+			board = new Board();
 			board.LineEliminateEvent += LineEliminate;
 			board.IncreaseScoreEvent += IncreaseScore;
 			board.LoseGameEvent += LoseGame;
@@ -81,14 +83,10 @@ namespace WindowsFormsApp1
 		}
 		public void FallToBottom()
 		{
-			Console.WriteLine("Call FallToBottom()");
 			if (State == States.Playing)
 			{
-				Console.WriteLine("Reach Line 78");
 				while (board.Falling()) { continue; }
-				Console.WriteLine("Reach Line 80");
 				if (State == States.Playing) PaintEvent(this, null);
-				Console.WriteLine("Reach Line 82");
 				if (!hasEliminatedRow)
 				{
 					PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
@@ -97,7 +95,6 @@ namespace WindowsFormsApp1
 				{
 					hasEliminatedRow = false;
 				}
-				Console.WriteLine("Reach Line 91");
 			}
 		}
 		public void MoveLeft()
@@ -122,8 +119,11 @@ namespace WindowsFormsApp1
 			game.Score = 0;
 			game.EliminatedLine = 0;
 			game.playingTime = new DateTime(1, 1, 1, 0, 0, 0);
-			game.State = States.Ready;
+			game.PaintEvent += paintEvent;
+			game.LoseGameEvent += loseGameEvent;
 			game.board.Initialize();
+			game.State = States.Ready;
+			//game.PaintEvent(game, null);
 			return game;
 		}
         public static TetrisGame Load(string path, EventHandler paintEvent, EventHandler loseGameEvent)
@@ -134,7 +134,10 @@ namespace WindowsFormsApp1
 			{
 				game = (TetrisGame)binaryFormatter.Deserialize(fs);
 			}
+			game.PaintEvent += paintEvent;
+			game.LoseGameEvent += loseGameEvent;
 			game.State = States.Paused;
+			//game.PaintEvent(game, null);
 			return game;
 		}
 		public void Start()
@@ -142,22 +145,14 @@ namespace WindowsFormsApp1
 			if(State == States.Ready)
 			{
 				State = States.Playing;
-				fallingThread = new Thread(FallingThread);
-				timingThread = new Thread(TimingThread);
-				fallingThread.Start();
-				timingThread.Start();
 				board.Start();
-				PaintEvent(this, null);
 			}
 		}
 		public void Pause()
 		{
 			if(State == States.Playing)
 			{
-				fallingThread.Abort();
-				timingThread.Abort();
 				State = States.Paused;
-				PaintEvent(this, null);
 			}
 		}
 		public void Continue()
@@ -165,11 +160,6 @@ namespace WindowsFormsApp1
 			if(State==States.Paused)
 			{
 				State = States.Playing;
-				fallingThread = new Thread(FallingThread);
-				timingThread = new Thread(TimingThread);
-				fallingThread.Start();
-				timingThread.Start();
-				PaintEvent(this, null);
 			}
 		}
 		public void Restart()
@@ -182,11 +172,6 @@ namespace WindowsFormsApp1
 				Score = 0;
 				EliminatedLine = 0;
 				playingTime = new DateTime(1, 1, 1, 0, 0, 0);
-				fallingThread = new Thread(FallingThread);
-				timingThread = new Thread(TimingThread);
-				fallingThread.Start();
-				timingThread.Start();
-				PaintEvent(this, null);
 			}
 		}
 		public void Save(string path)
@@ -217,8 +202,68 @@ namespace WindowsFormsApp1
 			SoundPlayer player = new SoundPlayer(stream);
 			player.Play();
 		}
+		private void LineEliminate(object sender, int increment)
+		{
+			EliminatedLine += increment;
+			PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Eliminate);
+			hasEliminatedRow = true;
+		}
+		private void IncreaseScore(object sender, int increment)
+		{
+			int oldScore = Score;
+			Score += increment;
+			int newScore = Score;
+			if (!board.CanSpecialPieceGenerate && (oldScore / 100 < newScore / 100)) board.CanSpecialPieceGenerate = true;
+		}
+		private void LoseGame()
+		{
+			State = States.Losing;
+			LoseGameEvent(this, null);
+		}
+		private void StateEntryEvent(States state)
+		{
+			switch (state)
+			{
+				case States.Ready:
+					PaintEvent(this, null);
+					break;
+				case States.Paused:
+					PaintEvent(this, null);
+					break;
+				case States.Playing:
+					fallingThread = new Thread(FallingThread);
+					timingThread = new Thread(TimingThread);
+					fallingThread.Start();
+					timingThread.Start();
+					PaintEvent(this, null);
+					break;
+				case States.Losing:
+					Console.Write("Entry LoseGameEvent");
+					PaintEvent(this, null);
+					break;
+				default:
+					break;
+			}
+		}
+		private void StateExitEvent(States state)
+		{
+			switch (state)
+			{
+				case States.Paused:
+					break;
+				case States.Playing:
+					break;
+				case States.Losing:
+					break;
+				default:
+					break;
+				case States.Ready:
+					break;
+			}
+		}
+
 		#region FallingThreadFunctions
-        private void FallingThread()
+		private void FallingThread()
         {
             while (State == States.Playing)
             {
@@ -244,27 +289,7 @@ namespace WindowsFormsApp1
 				playingTime = playingTime.AddSeconds(1);
 			}		
 		}
-		#endregion
-		private void LineEliminate(object sender, int increment)
-		{
-			EliminatedLine += increment;
-			PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Eliminate);
-			hasEliminatedRow = true;
-		}
-		private void IncreaseScore(object sender, int increment)
-		{
-			int oldScore = Score;
-			Score += increment;
-			int newScore = Score;
-			if (!board.CanSpecialPieceGenerate && (oldScore / 100 < newScore / 100)) board.CanSpecialPieceGenerate = true;
-		}
-		private void LoseGame()
-		{
-			fallingThread.Abort();
-			timingThread.Abort();
-			State = States.Losing;
-			LoseGameEvent(this, null);
-		}
+		#endregion	
 
 		#region ISerializable
 		[SecurityPermission(SecurityAction.Demand, SerializationFormatter = true)]
@@ -376,10 +401,11 @@ namespace WindowsFormsApp1
 				CurrentPieceCenter = CurrentPieceCenter.YAdd(-1);
 				if (IsLegalPieceMove() == false)
 				{
+					Console.WriteLine("Move is illegal.");
 					CurrentPieceCenter = CurrentPieceCenter.YAdd(1);
 					bool isFalling = CurrentPiece.Discard(this) &&
 						CurrentPiece.Offset.Max(t => t.OffSetY) + CurrentPieceCenter.CoordY >= Row;
-					Console.WriteLine(isFalling);
+					Console.WriteLine($"isFalling={isFalling}");
 					if (!isFalling)
 					{
 						Eliminate();
@@ -387,12 +413,15 @@ namespace WindowsFormsApp1
 					}
 					else
 					{
+						Console.WriteLine("Befor LoseGameEvent");
 						LoseGameEvent();
+						Console.WriteLine("After LoseGameEvent");
 					}
 					return false;
 				}
 				else
 				{
+					Console.WriteLine("Move is legal.");
 					return true;
 				}
 			}
@@ -961,6 +990,7 @@ namespace WindowsFormsApp1
 			}
 			#endregion
 		}
+
 	}
 	public static class TupleExtendMethod
 	{

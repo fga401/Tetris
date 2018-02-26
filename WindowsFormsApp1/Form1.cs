@@ -27,11 +27,11 @@ namespace WindowsFormsApp1
 			BufferedGraphicsContext context = BufferedGraphicsManager.Current;
 			using (BufferedGraphics bufferedGraphics = context.Allocate(this.CreateGraphics(), this.DisplayRectangle))
 			{
-				PaintTetris(bufferedGraphics.Graphics);
+				PaintTetris((TetrisGame)sender, bufferedGraphics.Graphics);
 				bufferedGraphics.Render();
 			}
 		}
-		private void PaintTetris(Graphics graphics)
+		private void PaintTetris(TetrisGame game, Graphics graphics)
 		{
 			//游戏区域
 			graphics.FillRectangle(new SolidBrush(Color.BurlyWood), this.DisplayRectangle);
@@ -126,7 +126,7 @@ namespace WindowsFormsApp1
 
 		private void LoseGame(object sender,EventArgs e)
 		{
-			PaintTetrisWithDoubleBuffer(this, null);
+			
 		}
 
 		private void Form1_KeyDown(object sender, KeyEventArgs e)
@@ -173,19 +173,12 @@ namespace WindowsFormsApp1
 					break;
 				case Keys.R:
 					game?.Restart();
-					PaintTetrisWithDoubleBuffer(this, null);
 					break;
 				case Keys.I:
 					game = TetrisGame.Initialize(0, PaintTetrisWithDoubleBuffer, LoseGame);
-					game.PaintEvent += PaintTetrisWithDoubleBuffer;
-					game.LoseGameEvent += LoseGame;
-					PaintTetrisWithDoubleBuffer(this, null);
 					break;
 				case Keys.L:
 					game = TetrisGame.Load("data.bin", PaintTetrisWithDoubleBuffer, LoseGame);
-					game.PaintEvent += PaintTetrisWithDoubleBuffer;
-					game.LoseGameEvent += LoseGame;
-					PaintTetrisWithDoubleBuffer(this, null);
 					break;
 				case Keys.Q:
 					PaintTetrisWithDoubleBuffer(game, null);

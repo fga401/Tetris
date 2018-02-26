@@ -26,7 +26,6 @@ namespace WindowsFormsApp1
 			ConsoleGame.GameStart();
 #elif WINFORM_OUTPUT
 			ConsoleGame.AllocConsole();
-			ConsoleGame.GameStart();
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 			Application.Run(new Form1());
