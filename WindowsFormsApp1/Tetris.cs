@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.Permissions;
+using System.Runtime.InteropServices;
 
 namespace WindowsFormsApp1
 {
@@ -981,6 +982,11 @@ namespace WindowsFormsApp1
 		[Serializable]
 		private class MSTimer : IDisposable
 		{
+			[DllImport("winmm")]
+			static extern void timeBeginPeriod(int t);
+			[DllImport("winmm")]
+			static extern void timeEndPeriod(int t);
+
 			[NonSerialized] private Thread timer;
 			private int time = 1;
 			private int interval;
@@ -990,7 +996,7 @@ namespace WindowsFormsApp1
 				get => time;
 				set
 				{
-					time = value % Interval;
+					time = value % (Interval / 50);
 				}
 			}
 			public int Interval
@@ -1011,18 +1017,24 @@ namespace WindowsFormsApp1
 			public void Start()
 			{
 				timer = new Thread(Tick);
+				timeBeginPeriod(1);
 				timer.Start();
 			}
 			public void Pause()
 			{
+				timeEndPeriod(1);
 				timer.Abort();
 			}
 			private void Tick()
 			{
 				while (true)
 				{
-					if (Time == 0) TimerAction();
-					Thread.Sleep(1);
+					if (Time == 0)
+					{
+						Thread thread = new Thread(() => { TimerAction(); });
+						thread.Start();
+					}
+					Thread.Sleep(50);
 					Time = Time + 1;
 				}
 			}
