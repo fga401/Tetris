@@ -43,6 +43,7 @@ namespace WindowsFormsApp1
             Paused,
             Playing,
             Losing,
+			Abort,
         }
 		public bool hasEliminatedRow;
 
@@ -128,7 +129,6 @@ namespace WindowsFormsApp1
 			game.LoseGameEvent += loseGameEvent;
 			game.board.Initialize();
 			game.State = States.Ready;
-			//game.PaintEvent(game, null);
 			return game;
 		}
         public static TetrisGame Load(string path, EventHandler paintEvent, EventHandler loseGameEvent)
@@ -142,7 +142,6 @@ namespace WindowsFormsApp1
 			game.PaintEvent += paintEvent;
 			game.LoseGameEvent += loseGameEvent;
 			game.State = States.Paused;
-			//game.PaintEvent(game, null);
 			return game;
 		}
 		public void Start()
@@ -195,7 +194,10 @@ namespace WindowsFormsApp1
 				}
 			}
 		}
-		public void Exit() { throw new NotImplementedException(); }
+		public void Exit()
+		{
+			State = States.Abort;
+		}
 
 		private void PlaySoundEffect(Stream stream)
 		{

@@ -28,7 +28,7 @@ namespace WindowsFormsApp1
 			ConsoleGame.AllocConsole();
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
-			Application.Run(new Form1());
+			Application.Run(new TetrisForm());
 #endif
 #if CONSOLE_OUTPUT
 			Console.ReadKey();
@@ -166,7 +166,7 @@ namespace WindowsFormsApp1
 						}
 						else if (Y == game.Row - 9)
 						{
-							builder.Append($"Level: {game.Level}");
+							builder.Append($"Mod: {game.Level}");
 						}
 						else if (Y == game.Row - 10)
 						{

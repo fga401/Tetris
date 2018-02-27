@@ -1,6 +1,6 @@
 ﻿namespace WindowsFormsApp1
 {
-	partial class Form1
+	partial class TetrisForm
 	{
 		/// <summary>
 		/// 必需的设计器变量。
@@ -30,15 +30,16 @@
 		{
 			this.SuspendLayout();
 			// 
-			// Form1
+			// TetrisForm
 			// 
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Inherit;
 			this.BackColor = System.Drawing.Color.BurlyWood;
 			this.ClientSize = new System.Drawing.Size(417, 651);
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
-			this.Name = "Form1";
+			this.Name = "TetrisForm";
 			this.Text = "Tetris";
 			this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.Form1_FormClosed);
+			this.Shown += new System.EventHandler(this.TetrisForm_Shown);
 			this.Paint += new System.Windows.Forms.PaintEventHandler(this.Form1_Paint);
 			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyDown);
 			this.ResumeLayout(false);
