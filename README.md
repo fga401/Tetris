@@ -1,6 +1,7 @@
 # Tetris
 A simple and traditional Game: Tetris
+Implement with one form
 
-what will be finished in next version(v0.9):
-+ Fully process;
-+ Three-difficulty-level selection.
+what will be finished in next version(v1.0):
++ Setting of key and color;
++ Rank list.
