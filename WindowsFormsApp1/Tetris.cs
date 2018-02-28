@@ -19,6 +19,13 @@ namespace WindowsFormsApp1
 	{
 		public event EventHandler PaintEvent;
 		public event EventHandler LoseGameEvent;
+		public enum Difficulty
+		{
+			Easy,
+			Medium,
+			Hard,
+		}
+		public Difficulty difficulty { get; private set; }
 		public int Row { get => Board.Row; }
 		public int Column { get => Board.Column; }
 		public int Score { get; private set; } = 0;
@@ -119,15 +126,16 @@ namespace WindowsFormsApp1
 				PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
 			}
 		}
-		public static TetrisGame Initialize(int Level, EventHandler paintEvent, EventHandler loseGameEvent)
+		public static TetrisGame Initialize(Difficulty level, EventHandler paintEvent, EventHandler loseGameEvent)
 		{
 			TetrisGame game = new TetrisGame();
+			game.difficulty = level;
 			game.Score = 0;
 			game.EliminatedLine = 0;
 			game.playingTime = new DateTime(1, 1, 1, 0, 0, 0);
 			game.PaintEvent += paintEvent;
 			game.LoseGameEvent += loseGameEvent;
-			game.board.Initialize();
+			game.board.Initialize(level);
 			game.State = States.Ready;
 			return game;
 		}
@@ -170,7 +178,7 @@ namespace WindowsFormsApp1
 		{
 			if(State == States.Losing)
 			{
-				board.Initialize();
+				board.Initialize(difficulty);
 				board.Start();
 				State = States.Playing;
 				Score = 0;
@@ -201,8 +209,12 @@ namespace WindowsFormsApp1
 
 		private void PlaySoundEffect(Stream stream)
 		{
-			SoundPlayer player = new SoundPlayer(stream);
-			player.Play();
+			Thread thread = new Thread(() =>
+			{
+				SoundPlayer player = new SoundPlayer(stream);
+				player.Play();
+			});
+			thread.Start();
 		}
 		private void LineEliminate(object sender, int increment)
 		{
@@ -291,6 +303,7 @@ namespace WindowsFormsApp1
 			info.AddValue("Board", board);
 			info.AddValue("FallTimer", fallTimer);
 			info.AddValue("ClockTimer", clockTimer);
+			info.AddValue("Difficulty", difficulty);
 		}
 		public TetrisGame(SerializationInfo info, StreamingContext context)
 		{
@@ -303,6 +316,7 @@ namespace WindowsFormsApp1
 			board.LoseGameEvent += LoseGame;
 			fallTimer = (MSTimer)info.GetValue("FallTimer", typeof(MSTimer));
 			clockTimer = (MSTimer)info.GetValue("ClockTimer", typeof(MSTimer));
+			difficulty = (Difficulty)info.GetValue("Difficulty", typeof(Difficulty));
 		}
 		#endregion
 
@@ -324,7 +338,6 @@ namespace WindowsFormsApp1
 				get => currentPieceCenter;
 				set
 				{
-					if (0 <= value.CoordX && value.CoordX < Column)
 						currentPieceCenter = value;
 				}
 			}
@@ -440,12 +453,13 @@ namespace WindowsFormsApp1
 					return true;
 				}
 			}
-			public void Initialize()
+			public void Initialize(Difficulty difficulty)
 			{
 				board = new Color?[Column, Row];
 				CanSpecialPieceGenerate = false;
 				NextPiece = CreatePiece(RandomGenerator.Next());
 				ChangeCurrentPiece();
+				SetInitalPiece(difficulty);
 			}
 			public void Start()
 			{
@@ -522,8 +536,47 @@ namespace WindowsFormsApp1
 					}
 				}
 			}
-
-			public Piece CreatePiece(int t)
+			private void SetInitalPiece(Difficulty difficulty)
+			{
+				int times;
+				int coef = -1;
+				switch (difficulty)
+				{
+					case Difficulty.Easy:
+						times = 0;
+						break;
+					case Difficulty.Medium:
+						times = 3;
+						break;
+					case Difficulty.Hard:
+						times = 6;
+						break;
+					default:
+						times = 0;
+						break;
+				}
+				for (int i = 0; i < times; i++) 
+				{
+					bool isRowFinished = false;
+					int Cursor = 0;
+					while(!isRowFinished)
+					{
+						int leftOffset = -CurrentPiece.Offset.Min(t => t.OffSetX);
+						int RightOffset = CurrentPiece.Offset.Max(t => t.OffSetX);
+						while (MoveRight(coef));
+						for (int j = 0; j < Cursor; j++)
+						{
+							MoveRight(-coef);
+						}
+						while(Falling());
+						Cursor += leftOffset + 1 + RightOffset;
+						if (Cursor >= Column) isRowFinished = true;
+					}
+					coef = -1 * coef;
+				}
+				
+			}
+			private Piece CreatePiece(int t)
 			{
 				int mod = CanSpecialPieceGenerate ? Piece.AllPieceTypeNumber : Piece.NormalPieceTypeNumber;
 				Piece.PieceType type = (Piece.PieceType)(t % mod);

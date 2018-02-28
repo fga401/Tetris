@@ -23,7 +23,7 @@ namespace WindowsFormsApp1
 		#region IndexJumpFunctions
 		void ExitApp()
 		{
-			throw new NotSupportedException();
+			Environment.Exit(0);
 		}
 		void ToMain()
 		{
@@ -70,7 +70,7 @@ namespace WindowsFormsApp1
 			InitializeComponent();
 			pages = new List<Page>
 			{
-			new MainPage(true, ToGamingLoad, ToLevelSelection, ToSetting, ToRank) { GotoPreviousPage = ExitApp },
+			new MainPage(ToGamingLoad, ToLevelSelection, ToSetting, ToRank) { GotoPreviousPage = ExitApp },
 			new LevelSelectionPage(ToGamingEasy, ToGamingMedium, ToGamingHard) { GotoPreviousPage = ToMain },
 			new GamingPage(ToMain) { GotoPreviousPage = ToMain},
 			};
@@ -92,6 +92,7 @@ namespace WindowsFormsApp1
 				bufferedGraphics.Render();
 			}
 		}
+#if DEBUG
 		private void PaintTest(Graphics graphics)
 		{
 			graphics.FillRectangle(new SolidBrush(Color.BurlyWood), this.DisplayRectangle);
@@ -106,6 +107,7 @@ namespace WindowsFormsApp1
 			//graphics.DrawString("Rank", new Font("Arial Black", 15), Brushes.Black, 174, 460);
 			//graphics.DrawRectangle(Pens.Red, 174, 464, 60, 20);
 		}
+#endif
 
 
 		private void LoseGame(object sender,EventArgs e)
@@ -131,7 +133,10 @@ namespace WindowsFormsApp1
 
 		private void Form1_FormClosed(object sender, FormClosedEventArgs e)
 		{
+#if DEBUG
 			Program.ConsoleGame.FreeConsole();
+#endif
+			Environment.Exit(0);
 		}
 
 		private void Form1_Paint(object sender, PaintEventArgs e)
@@ -142,6 +147,16 @@ namespace WindowsFormsApp1
 		private void TetrisForm_Shown(object sender, EventArgs e)
 		{
 			CurrentPage.Invoke(null);
+		}
+
+		private void TetrisForm_MouseMove(object sender, MouseEventArgs e)
+		{
+			CurrentPage.MouseMoveHanding(sender, e);
+		}
+
+		private void TetrisForm_MouseDown(object sender, MouseEventArgs e)
+		{
+			CurrentPage.MouseDownHanding(sender, e);
 		}
 	}
 

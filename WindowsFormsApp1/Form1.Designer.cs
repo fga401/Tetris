@@ -42,6 +42,8 @@
 			this.Shown += new System.EventHandler(this.TetrisForm_Shown);
 			this.Paint += new System.Windows.Forms.PaintEventHandler(this.Form1_Paint);
 			this.KeyDown += new System.Windows.Forms.KeyEventHandler(this.Form1_KeyDown);
+			this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.TetrisForm_MouseDown);
+			this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.TetrisForm_MouseMove);
 			this.ResumeLayout(false);
 
 		}

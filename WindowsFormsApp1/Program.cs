@@ -25,7 +25,9 @@ namespace WindowsFormsApp1
 			ConsoleGame.AllocConsole();
 			ConsoleGame.GameStart();
 #elif WINFORM_OUTPUT
+#if DEBUG
 			ConsoleGame.AllocConsole();
+#endif
 			Application.EnableVisualStyles();
 			Application.SetCompatibleTextRenderingDefault(false);
 			Application.Run(new TetrisForm());

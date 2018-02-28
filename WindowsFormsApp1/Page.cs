@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
+using System.IO;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -40,6 +42,7 @@ namespace WindowsFormsApp1
 				case Keys.Up:
 					PreviousButton();
 					break;
+				case Keys.Space:
 				case Keys.Enter:
 					ActiveButton?.ButtonClick();
 					break;
@@ -50,7 +53,32 @@ namespace WindowsFormsApp1
 					break;
 			}
 		}
-
+		public virtual void MouseMoveHanding(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.None)
+			{
+				for (int i = 0; i < buttons.Count; i++)
+				{
+					if (buttons[i].Enable && buttons[i].activeRectangle.Contains(e.Location.X, e.Location.Y))
+					{
+						activeButtonIndex = i;
+						PaintEvent(null);
+						return;
+					}
+				}
+				SetNullIndex();
+			}
+		}
+		public virtual void MouseDownHanding(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.Left)
+			{
+				if (ActiveButton != null && ActiveButton.activeRectangle.Contains(e.Location.X, e.Location.Y)) 
+				{
+					ActiveButton.ButtonClick();
+				}	
+			}
+		}
 		protected int? activeButtonIndex = null;
 		protected int EnableButtonCount { get => buttons.Count(b => b.Enable); }
 		protected StringButton PreviousButton()
@@ -120,23 +148,40 @@ namespace WindowsFormsApp1
 
 	class MainPage : Page
 	{
-		bool canLoad;
-
-		public MainPage(bool canLoad, Action @continue, Action newGame, Action setting, Action rank)
+		bool CanLoad
 		{
-			this.canLoad = canLoad;
+			set => buttons[0].Enable = value;
+		}
+
+		public MainPage(Action @continue, Action newGame, Action setting, Action rank)
+		{
 			Font font = new Font("Arial Black", 15);
 			buttons.Add(new StringButton(155, 344, 102, 20, "Continue", font, 155, 340, @continue));
 			buttons.Add(new StringButton(143, 384, 124, 20, "New Game", font, 143, 380, newGame));
-			buttons.Add(new StringButton(162, 424, 83, 20, "Setting", font, 162, 420, setting));
-			buttons.Add(new StringButton(174, 464, 60, 20, "Rank", font, 174, 460, rank));
-			buttons[0].Enable = canLoad;
+			buttons.Add(new StringButton(162, 424, 83, 20, "Setting", font, 162, 420, setting) { Enable = false});
+			buttons.Add(new StringButton(174, 464, 60, 20, "Rank", font, 174, 460, rank) { Enable = false });
 		}
 		public override void PaintPage(Graphics graphics, Form f, object arg)
 		{
 			TetrisForm form = (TetrisForm)f;
 			graphics.DrawString("Tetris", new Font("Arial Black", 65), Brushes.Black, 55, 60);
 			buttons.ForEach(b => { if (b.Enable) b.Draw(graphics, b.Equals(ActiveButton)); });
+		}
+		public override void Invoke(params object[] args)
+		{
+			try
+			{
+				using (FileStream fs = new FileStream("loadable", FileMode.Open))
+				{
+					BinaryFormatter bf = new BinaryFormatter();
+					CanLoad = (bool)bf.Deserialize(fs);
+				}
+			}
+			catch (Exception)
+			{
+				CanLoad = false;
+			}
+			base.Invoke(args);
 		}
 	}
 
@@ -294,16 +339,25 @@ namespace WindowsFormsApp1
 			switch (mod)
 			{
 				case Mod.Easy:
-					game = TetrisGame.Initialize(0, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
+					game = TetrisGame.Initialize(TetrisGame.Difficulty.Easy, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
 					buttons[0].content = "   Start";
 					break;
 				case Mod.Medium:
+					game = TetrisGame.Initialize(TetrisGame.Difficulty.Medium, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
+					buttons[0].content = "   Start";
 					break;
 				case Mod.Hard:
+					game = TetrisGame.Initialize(TetrisGame.Difficulty.Hard, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
+					buttons[0].content = "   Start";
 					break;
 				case Mod.Load:
-					game = TetrisGame.Load("data.bin", (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
+					game = TetrisGame.Load("data", (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
 					buttons[0].content = "Continue";
+					using (FileStream fs = new FileStream("loadable", FileMode.Create))
+					{
+						BinaryFormatter bf = new BinaryFormatter();
+						bf.Serialize(fs, false);
+					}
 					break;
 				default:
 					break;
@@ -313,6 +367,7 @@ namespace WindowsFormsApp1
 			buttons[2].ButtonClick = SaveAndExit;
 			buttons[3].ButtonClick = ToMain;
 			buttons[4].ButtonClick = CloseExitBox;
+			isGameChanged = false;
 			CloseExitBox();
 			SetNullIndex();
 		}
@@ -328,6 +383,7 @@ namespace WindowsFormsApp1
 							case Keys.Space:
 							case Keys.P:
 								buttons[0].content = "Continue";
+								isGameChanged = true;
 								game.Start();
 								SetNullIndex();
 								break;
@@ -355,6 +411,7 @@ namespace WindowsFormsApp1
 							case Keys.Space:
 							case Keys.P:
 								buttons[0].content = "  Pause";
+								isGameChanged = true;
 								game.Continue();
 								SetNullIndex();
 								break;
@@ -366,7 +423,11 @@ namespace WindowsFormsApp1
 								break;
 							case Keys.Escape:
 								if (ActiveButton != null) SetNullIndex();
-								else OpenExitBox();
+								else
+								{
+									if (isGameChanged) OpenExitBox();
+									else Exit();
+								}
 								break;
 							case Keys.Enter:
 								ActiveButton?.ButtonClick();
@@ -418,6 +479,7 @@ namespace WindowsFormsApp1
 							case Keys.Space:
 							case Keys.P:
 								buttons[0].content = " Pause";
+								isGameChanged = true;
 								game.Restart();
 								SetNullIndex();
 								break;
@@ -459,11 +521,38 @@ namespace WindowsFormsApp1
 						buttons[4].ButtonClick();
 						PaintEventPublisher(game);
 						break;
+					case Keys.Space:
 					case Keys.Enter:
 						ActiveButton?.ButtonClick();
 						break;
 					default:
 						break;
+				}
+			}
+		}
+		public override void MouseMoveHanding(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.None)
+			{
+				for (int i = 0; i < buttons.Count; i++)
+				{
+					if (buttons[i].Enable && buttons[i].activeRectangle.Contains(e.Location.X, e.Location.Y))
+					{
+						activeButtonIndex = i;
+						PaintEventPublisher(game);
+						return;
+					}
+				}
+				SetNullIndex();
+			}
+		}
+		public override void MouseDownHanding(object sender, MouseEventArgs e)
+		{
+			if (e.Button == MouseButtons.Left)
+			{
+				if (ActiveButton.activeRectangle.Contains(e.Location.X, e.Location.Y))
+				{
+					ActiveButton.ButtonClick();
 				}
 			}
 		}
@@ -518,6 +607,7 @@ namespace WindowsFormsApp1
 			activeButtonIndex = null;
 			PaintEventPublisher(game);
 		}
+		private bool isGameChanged;
 		private bool isExitBoxVisible;
 		private void OpenExitBox()
 		{
@@ -554,7 +644,7 @@ namespace WindowsFormsApp1
 			}
 			else if (game.State == TetrisGame.States.Losing)
 			{
-				buttons[0].content = " Restart";
+				buttons[0].content = "  Pause";
 				game.Restart();
 			}
 			else if (game.State == TetrisGame.States.Ready)
@@ -565,7 +655,12 @@ namespace WindowsFormsApp1
 		}
 		private void SaveAndExit()
 		{
-			game.Save("data.bin");
+			game.Save("data");
+			using (FileStream fs = new FileStream("loadable", FileMode.Create))
+			{
+				BinaryFormatter bf = new BinaryFormatter();
+				bf.Serialize(fs, true);
+			}
 			game.Exit();
 			ToMain();
 		}
@@ -588,6 +683,7 @@ namespace WindowsFormsApp1
 		private void LoseGame()
 		{
 			buttons[0].content = " Restart";
+			isGameChanged = false;
 			PaintEventPublisher(game);
 		}
 	}
