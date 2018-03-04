@@ -14,12 +14,10 @@ namespace WindowsFormsApp1
 {
 	public partial class TetrisForm : Form
 	{
-		private int pageIndex;
-		private Page CurrentPage
-		{
-			get => pages[pageIndex];
-		}
-		private List<Page> pages;
+		private string currentPageKey;
+		private Page CurrentPage { get => pages[currentPageKey]; }
+		private Dictionary<string, Page> pages;
+
 		#region IndexJumpFunctions
 		void ExitApp()
 		{
@@ -27,33 +25,33 @@ namespace WindowsFormsApp1
 		}
 		void ToMain()
 		{
-			pageIndex = 0;
-			CurrentPage.Invoke(null);
+			currentPageKey = "MainPage";
+			CurrentPage.Activate(null);
 		}
 		void ToLevelSelection()
 		{
-			pageIndex = 1;
-			CurrentPage.Invoke(null);
+			currentPageKey = "LevelSelectionPage";
+			CurrentPage.Activate(null);
 		}
 		void ToGamingEasy()
 		{
-			pageIndex = 2;
-			CurrentPage.Invoke(GamingPage.Mod.Easy);
+			currentPageKey = "GamingPage";
+			CurrentPage.Activate(GamingPage.Mod.Easy);
 		}
 		void ToGamingMedium()
 		{
-			pageIndex = 2;
-			CurrentPage.Invoke(GamingPage.Mod.Medium);
+			currentPageKey = "GamingPage";
+			CurrentPage.Activate(GamingPage.Mod.Medium);
 		}
 		void ToGamingHard()
 		{
-			pageIndex = 2;
-			CurrentPage.Invoke(GamingPage.Mod.Hard);
+			currentPageKey = "GamingPage";
+			CurrentPage.Activate(GamingPage.Mod.Hard);
 		}
 		void ToGamingLoad()
 		{
-			pageIndex = 2;
-			CurrentPage.Invoke(GamingPage.Mod.Load);
+			currentPageKey = "GamingPage";
+			CurrentPage.Activate(GamingPage.Mod.Load);
 		}
 		void ToSetting()
 		{
@@ -68,27 +66,27 @@ namespace WindowsFormsApp1
 		public TetrisForm()
 		{
 			InitializeComponent();
-			pages = new List<Page>
+			pages = new Dictionary<string, Page>
 			{
-			new MainPage(ToGamingLoad, ToLevelSelection, ToSetting, ToRank) { GotoPreviousPage = ExitApp },
-			new LevelSelectionPage(ToGamingEasy, ToGamingMedium, ToGamingHard) { GotoPreviousPage = ToMain },
-			new GamingPage(ToMain) { GotoPreviousPage = ToMain},
+				{"MainPage", new MainPage(ExitApp, ToGamingLoad, ToLevelSelection, ToSetting, ToRank)},
+				{"LevelSelectionPage", new LevelSelectionPage(ToMain, ToGamingEasy, ToGamingMedium, ToGamingHard)},
+				{"GamingPage", new GamingPage(null, ToMain)},
 			};
-			pageIndex = 0;
-			foreach (var page in pages)
+			currentPageKey = "MainPage";
+			foreach (var page in pages.Values)
 			{
 				page.PaintEvent += DoubleBufferPaintPage;
 			}
 		}
 
-		private void DoubleBufferPaintPage(object arg)
+		private void DoubleBufferPaintPage(object sender, EventArgs e)
 		{
 			BufferedGraphicsContext context = BufferedGraphicsManager.Current;
 			using (BufferedGraphics bufferedGraphics = context.Allocate(this.CreateGraphics(), this.DisplayRectangle))
 			{
 				Graphics graphics = bufferedGraphics.Graphics;
 				graphics.FillRectangle(new SolidBrush(Color.BurlyWood), this.DisplayRectangle);
-				CurrentPage.PaintPage(graphics, this, arg);
+				CurrentPage.PaintPage(graphics, this);
 				bufferedGraphics.Render();
 			}
 		}
@@ -117,18 +115,7 @@ namespace WindowsFormsApp1
 
 		private void Form1_KeyDown(object sender, KeyEventArgs e)
 		{
-			CurrentPage.KeyHanding(sender,e);
-			/*switch (e.KeyData)
-			{
-				case Keys.W:
-					PaintTest(this.CreateGraphics());
-					break;
-				case Keys.Q:
-					DoubleBufferPaintPage();
-					break;
-				default:
-					break;
-			}*/
+			CurrentPage.KeyHandler(sender,e);
 		}
 
 		private void Form1_FormClosed(object sender, FormClosedEventArgs e)
@@ -146,17 +133,17 @@ namespace WindowsFormsApp1
 
 		private void TetrisForm_Shown(object sender, EventArgs e)
 		{
-			CurrentPage.Invoke(null);
+			CurrentPage.Activate(null);
 		}
 
 		private void TetrisForm_MouseMove(object sender, MouseEventArgs e)
 		{
-			CurrentPage.MouseMoveHanding(sender, e);
+			CurrentPage.MouseMoveHandler(sender, e);
 		}
 
 		private void TetrisForm_MouseDown(object sender, MouseEventArgs e)
 		{
-			CurrentPage.MouseDownHanding(sender, e);
+			CurrentPage.MouseDownHandler(sender, e);
 		}
 	}
 

@@ -48,7 +48,7 @@ namespace WindowsFormsApp1
 			public static void GameStart()
 			{
 				Console.WindowHeight = 30;
-				TetrisGame game = TetrisGame.Initialize(0, ConsolePaintBoard, PrintFailInfo);
+				TetrisGame game = TetrisGame.Initialize(0);
 				while (game.State == TetrisGame.States.Paused && game.State == TetrisGame.States.Playing)
 				{
 					InputMonitor(game);

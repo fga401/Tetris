@@ -13,9 +13,14 @@ namespace WindowsFormsApp1
 {
 	class Page
 	{
+		public Page(Action toPrevious)
+		{
+			GotoPreviousPage = toPrevious;
+		}
 		public Action GotoPreviousPage;
-		public event Action<object> PaintEvent;
-		public List<StringButton> buttons = new List<StringButton>();
+		public event EventHandler PaintEvent;
+		public List<StringButton> buttons;
+		public Dictionary<string, StringButton> buttonsNameMap;
 		public StringButton ActiveButton
 		{
 			get
@@ -26,13 +31,13 @@ namespace WindowsFormsApp1
 					return buttons[activeButtonIndex.Value];
 			}
 		}
-		public virtual void PaintPage(Graphics graphics, Form f, object arg) {}
-		public virtual void Invoke(params object[] args)
+		public virtual void PaintPage(Graphics graphics, Form f) {}
+		public virtual void Activate(params object[] args)
 		{
-			SetNullIndex();
-			PaintEvent(null);
+			SetIndexNull();
+			PaintEventPublisher();
 		}
-		public virtual void KeyHanding(object sender, KeyEventArgs e)
+		public virtual void KeyHandler(object sender, KeyEventArgs e)
 		{
 			switch (e.KeyData)
 			{
@@ -47,13 +52,16 @@ namespace WindowsFormsApp1
 					ActiveButton?.ButtonClick();
 					break;
 				case Keys.Escape:
-					GotoPreviousPage();
+					if (activeButtonIndex != null)
+						SetIndexNull();
+					else
+						GotoPreviousPage();
 					break;
 				default:
 					break;
 			}
 		}
-		public virtual void MouseMoveHanding(object sender, MouseEventArgs e)
+		public virtual void MouseMoveHandler(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.None)
 			{
@@ -62,23 +70,24 @@ namespace WindowsFormsApp1
 					if (buttons[i].Enable && buttons[i].activeRectangle.Contains(e.Location.X, e.Location.Y))
 					{
 						activeButtonIndex = i;
-						PaintEvent(null);
+						PaintEventPublisher();
 						return;
 					}
 				}
-				SetNullIndex();
+				SetIndexNull();
 			}
 		}
-		public virtual void MouseDownHanding(object sender, MouseEventArgs e)
+		public virtual void MouseDownHandler(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.Left)
 			{
 				if (ActiveButton != null && ActiveButton.activeRectangle.Contains(e.Location.X, e.Location.Y)) 
 				{
-					ActiveButton.ButtonClick();
+					ActiveButton.ButtonClick?.Invoke();
 				}	
 			}
 		}
+
 		protected int? activeButtonIndex = null;
 		protected int EnableButtonCount { get => buttons.Count(b => b.Enable); }
 		protected StringButton PreviousButton()
@@ -97,7 +106,7 @@ namespace WindowsFormsApp1
 				{
 					DecIndex();
 				}
-				PaintEvent(null);
+				PaintEventPublisher();
 				return ActiveButton;
 			}
 			else
@@ -119,7 +128,7 @@ namespace WindowsFormsApp1
 				{
 					IncIndex();
 				}
-				PaintEvent(null);
+				PaintEventPublisher();
 				return ActiveButton;
 			}
 			else
@@ -135,14 +144,15 @@ namespace WindowsFormsApp1
 			if (activeButtonIndex != null)
 				activeButtonIndex = (buttons.Count + activeButtonIndex + 1) % buttons.Count;
 		}
-		protected void SetNullIndex()
+		protected void SetIndexNull()
 		{
 			activeButtonIndex = null;
-			PaintEvent(null);
+			PaintEventPublisher();
 		}
-		protected void PaintEventPublisher(object arg)
+
+		protected void PaintEventPublisher()
 		{
-			PaintEvent(arg);
+			PaintEvent?.Invoke(this, EventArgs.Empty);
 		}
 	}
 
@@ -150,24 +160,38 @@ namespace WindowsFormsApp1
 	{
 		bool CanLoad
 		{
-			set => buttons[0].Enable = value;
+			set
+			{
+				buttonsNameMap["Continue"].Enable = value;
+				buttonsNameMap["Continue"].Visible = value;
+			}
 		}
 
-		public MainPage(Action @continue, Action newGame, Action setting, Action rank)
+		public MainPage(Action toPrevious, Action @continue, Action newGame, Action setting, Action rank) : base(toPrevious)
 		{
 			Font font = new Font("Arial Black", 15);
-			buttons.Add(new StringButton(155, 344, 102, 20, "Continue", font, 155, 340, @continue));
-			buttons.Add(new StringButton(143, 384, 124, 20, "New Game", font, 143, 380, newGame));
-			buttons.Add(new StringButton(162, 424, 83, 20, "Setting", font, 162, 420, setting) { Enable = false});
-			buttons.Add(new StringButton(174, 464, 60, 20, "Rank", font, 174, 460, rank) { Enable = false });
+			buttonsNameMap = new Dictionary<string, StringButton>
+			{
+				{"Continue", new StringButton(155, 344, 102, 20, "Continue", font, 155, 340, @continue)},
+				{"NewGame", new StringButton(143, 384, 124, 20, "New Game", font, 143, 380, newGame)},
+				{"Setting", new StringButton(162, 424, 83, 20, "Setting", font, 162, 420, setting) { Enable = false }},
+				{"Rank", new StringButton(174, 464, 60, 20, "Rank", font, 174, 460, rank) { Enable = false }},
+			};
+			buttons = new List<StringButton>
+			{
+				buttonsNameMap["Continue"],
+				buttonsNameMap["NewGame"],
+				buttonsNameMap["Setting"],
+				buttonsNameMap["Rank"],
+			};
 		}
-		public override void PaintPage(Graphics graphics, Form f, object arg)
+		public override void PaintPage(Graphics graphics, Form f)
 		{
 			TetrisForm form = (TetrisForm)f;
 			graphics.DrawString("Tetris", new Font("Arial Black", 65), Brushes.Black, 55, 60);
-			buttons.ForEach(b => { if (b.Enable) b.Draw(graphics, b.Equals(ActiveButton)); });
+			buttons.ForEach(b => { b.Draw(graphics, b.Equals(ActiveButton)); });
 		}
-		public override void Invoke(params object[] args)
+		public override void Activate(params object[] args)
 		{
 			try
 			{
@@ -181,21 +205,29 @@ namespace WindowsFormsApp1
 			{
 				CanLoad = false;
 			}
-			base.Invoke(args);
+			base.Activate(args);
 		}
 	}
 
 	class LevelSelectionPage : Page
 	{
-
-		public LevelSelectionPage(Action easy, Action medium, Action hard)
+		public LevelSelectionPage(Action toPrevious, Action easy, Action medium, Action hard) : base(toPrevious)
 		{
 			Font font = new Font("Arial Black", 15);
-			buttons.Add(new StringButton(181, 344, 56, 20, "Easy", font, 180, 340, easy));
-			buttons.Add(new StringButton(163, 384, 88, 20, "Medium", font, 162, 380, medium));
-			buttons.Add(new StringButton(181, 424, 56, 20, "Hard", font, 180, 420, hard));
+			buttonsNameMap = new Dictionary<string, StringButton>
+			{
+				{"Easy", new StringButton(181, 344, 56, 20, "Easy", font, 180, 340, easy)},
+				{"Medium", new StringButton(163, 384, 88, 20, "Medium", font, 162, 380, medium)},
+				{"Hard", new StringButton(181, 424, 56, 20, "Hard", font, 180, 420, hard)},
+			};
+			buttons = new List<StringButton>
+			{
+				buttonsNameMap["Easy"],
+				buttonsNameMap["Medium"],
+				buttonsNameMap["Hard"],
+			};
 		}
-		public override void PaintPage(Graphics graphics, Form f, object arg)
+		public override void PaintPage(Graphics graphics, Form f)
 		{
 			TetrisForm form = (TetrisForm)f;
 			graphics.DrawString("Tetris", new Font("Arial Black", 65), Brushes.Black, 55, 60);
@@ -216,26 +248,32 @@ namespace WindowsFormsApp1
 
 		public TetrisGame game;
 
-		public GamingPage(Action toMain)
+		public GamingPage(Action toPrevious, Action toMain) : base(toPrevious)
 		{
-			StringButton ExitButton = new StringButton(321, 593, 40, 17, "Exit", new Font("Arial Black", 12), 320, 590, null);
-			StringButton PauseButton = new StringButton(301, 563, 82, 17, "   Start", new Font("Arial Black", 12), 300, 560, null);
-			StringButton YesButton = new StringButton(106, 278, 36, 17, "Yes", new Font("Arial Black", 12), 105, 275, null) { Enable = false };
-			StringButton NoButton = new StringButton(191, 278, 27, 17, "No", new Font("Arial Black", 12), 190, 275, null) { Enable = false };
-			StringButton CancelButton = new StringButton(251, 278, 66, 17, "Cancel", new Font("Arial Black", 12), 250, 275, null) { Enable = false };
-			buttons.Add(PauseButton);
-			buttons.Add(ExitButton);
-			buttons.Add(YesButton);
-			buttons.Add(NoButton);
-			buttons.Add(CancelButton);
-			isExitBoxVisible = false;
 			ToMain = toMain;
+			buttonsNameMap = new Dictionary<string, StringButton>
+			{
+				{"Switch", new StringButton(301, 563, 82, 17, "   Start", new Font("Arial Black", 12), 300, 560, SwitchButtonFunction)},
+				{"Exit", new StringButton(321, 593, 40, 17, "Exit", new Font("Arial Black", 12), 320, 590, ExitButtonFunction)},
+				{"Yes", new StringButton(106, 278, 36, 17, "Yes", new Font("Arial Black", 12), 105, 275, SaveAndExit)},
+				{"No", new StringButton(191, 278, 27, 17, "No", new Font("Arial Black", 12), 190, 275, ToMain)},
+				{"Cancel", new StringButton(251, 278, 66, 17, "Cancel", new Font("Arial Black", 12), 250, 275, CloseExitBox)},
+			};
+			buttons = new List<StringButton>
+			{
+				buttonsNameMap["Switch"],
+				buttonsNameMap["Exit"],
+				buttonsNameMap["Yes"],
+				buttonsNameMap["No"],
+				buttonsNameMap["Cancel"],
+			};
+			CloseExitBox();
 		}
-		public override void PaintPage(Graphics graphics, Form f, object arg)
+		public override void PaintPage(Graphics graphics, Form f)
 		{
 			TetrisForm form = (TetrisForm)f;
 			Font defaultFont = new Font("Arial Black", 10);
-			PaintTetris((TetrisGame)arg);
+			PaintTetris(game);
 			if (isExitBoxVisible) PaintExitBox();
 			buttons.GetRange(0, 2).ForEach(b => { b.Draw(graphics, b.Equals(ActiveButton)); });
 
@@ -333,26 +371,26 @@ namespace WindowsFormsApp1
 				buttons.GetRange(2, 3).ForEach(b => { b.Draw(graphics, b.Equals(ActiveButton)); });
 			}
 		}
-		public override void Invoke(params object[] args)
+		public override void Activate(params object[] args)
 		{
 			Mod mod = (Mod)args[0];
 			switch (mod)
 			{
 				case Mod.Easy:
-					game = TetrisGame.Initialize(TetrisGame.Difficulty.Easy, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
-					buttons[0].content = "   Start";
+					game = TetrisGame.Initialize(TetrisGame.Difficulty.Easy);
+					buttonsNameMap["Switch"].content = "   Start";
 					break;
 				case Mod.Medium:
-					game = TetrisGame.Initialize(TetrisGame.Difficulty.Medium, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
-					buttons[0].content = "   Start";
+					game = TetrisGame.Initialize(TetrisGame.Difficulty.Medium);
+					buttonsNameMap["Switch"].content = "   Start";
 					break;
 				case Mod.Hard:
-					game = TetrisGame.Initialize(TetrisGame.Difficulty.Hard, (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
-					buttons[0].content = "   Start";
+					game = TetrisGame.Initialize(TetrisGame.Difficulty.Hard);
+					buttonsNameMap["Switch"].content = "   Start";
 					break;
 				case Mod.Load:
-					game = TetrisGame.Load("data", (s, e) => { base.PaintEventPublisher(s); }, (s, e) => { LoseGame(); });
-					buttons[0].content = "Continue";
+					game = TetrisGame.Load("data");
+					buttonsNameMap["Switch"].content = "Continue";
 					using (FileStream fs = new FileStream("loadable", FileMode.Create))
 					{
 						BinaryFormatter bf = new BinaryFormatter();
@@ -362,16 +400,14 @@ namespace WindowsFormsApp1
 				default:
 					break;
 			}
-			buttons[0].ButtonClick = SwitchButtonFunction;
-			buttons[1].ButtonClick = ExitButtonClick;
-			buttons[2].ButtonClick = SaveAndExit;
-			buttons[3].ButtonClick = ToMain;
-			buttons[4].ButtonClick = CloseExitBox;
+			game.PaintEvent += (s, e) => { base.PaintEventPublisher(); };
+			game.LoseGameEvent += LoseGame;
+			game.StateChangeEvent += StateChange;
 			isGameChanged = false;
 			CloseExitBox();
-			SetNullIndex();
+			SetIndexNull();
 		}
-		public override void KeyHanding(object sender, KeyEventArgs e)
+		public override void KeyHandler(object sender, KeyEventArgs e)
 		{
 			if(isExitBoxVisible == false)
 			{
@@ -382,10 +418,9 @@ namespace WindowsFormsApp1
 						{
 							case Keys.Space:
 							case Keys.P:
-								buttons[0].content = "Continue";
 								isGameChanged = true;
 								game.Start();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							case Keys.Up:
 								PreviousButton();
@@ -394,12 +429,12 @@ namespace WindowsFormsApp1
 								NextButton();
 								break;
 							case Keys.Escape:
-								if (ActiveButton != null) SetNullIndex();
+								if (ActiveButton != null) SetIndexNull();
 								else Exit();
 								break;
 							case Keys.Enter:
 								ActiveButton?.ButtonClick();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							default:
 								break;
@@ -410,10 +445,9 @@ namespace WindowsFormsApp1
 						{
 							case Keys.Space:
 							case Keys.P:
-								buttons[0].content = "  Pause";
 								isGameChanged = true;
 								game.Continue();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							case Keys.Up:
 								PreviousButton();
@@ -422,16 +456,16 @@ namespace WindowsFormsApp1
 								NextButton();
 								break;
 							case Keys.Escape:
-								if (ActiveButton != null) SetNullIndex();
+								if (ActiveButton != null) SetIndexNull();
 								else
 								{
 									if (isGameChanged) OpenExitBox();
-									else Exit();
+									else SaveAndExit();
 								}
 								break;
 							case Keys.Enter:
 								ActiveButton?.ButtonClick();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							default:
 								break;
@@ -442,9 +476,8 @@ namespace WindowsFormsApp1
 						{
 							case Keys.Space:
 							case Keys.P:
-								buttons[0].content = "Continue";
 								game.Pause();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							case Keys.Left:
 								game.MoveLeft();
@@ -478,10 +511,9 @@ namespace WindowsFormsApp1
 						{
 							case Keys.Space:
 							case Keys.P:
-								buttons[0].content = " Pause";
 								isGameChanged = true;
 								game.Restart();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							case Keys.Up:
 								PreviousButton();
@@ -490,12 +522,12 @@ namespace WindowsFormsApp1
 								NextButton();
 								break;
 							case Keys.Escape:
-								if (ActiveButton != null) SetNullIndex();
+								if (ActiveButton != null) SetIndexNull();
 								else Exit();
 								break;
 							case Keys.Enter:
 								ActiveButton?.ButtonClick();
-								SetNullIndex();
+								SetIndexNull();
 								break;
 							default:
 								break;
@@ -519,7 +551,7 @@ namespace WindowsFormsApp1
 						break;
 					case Keys.Escape:
 						buttons[4].ButtonClick();
-						PaintEventPublisher(game);
+						PaintEventPublisher();
 						break;
 					case Keys.Space:
 					case Keys.Enter:
@@ -530,7 +562,7 @@ namespace WindowsFormsApp1
 				}
 			}
 		}
-		public override void MouseMoveHanding(object sender, MouseEventArgs e)
+		public override void MouseMoveHandler(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.None)
 			{
@@ -539,14 +571,14 @@ namespace WindowsFormsApp1
 					if (buttons[i].Enable && buttons[i].activeRectangle.Contains(e.Location.X, e.Location.Y))
 					{
 						activeButtonIndex = i;
-						PaintEventPublisher(game);
+						PaintEventPublisher();
 						return;
 					}
 				}
-				SetNullIndex();
+				SetIndexNull();
 			}
 		}
-		public override void MouseDownHanding(object sender, MouseEventArgs e)
+		public override void MouseDownHandler(object sender, MouseEventArgs e)
 		{
 			if (e.Button == MouseButtons.Left)
 			{
@@ -557,100 +589,64 @@ namespace WindowsFormsApp1
 			}
 		}
 
-		private Action ToMain;
-		new private StringButton PreviousButton()
-		{
-			if (EnableButtonCount > 0)
-			{
-				if (activeButtonIndex == null)
-				{
-					activeButtonIndex = buttons.Count - 1;
-				}
-				else
-				{
-					DecIndex();
-				}
-				while (ActiveButton.Enable == false)
-				{
-					DecIndex();
-				}
-				PaintEventPublisher(game);
-				return ActiveButton;
-			}
-			else
-				return null;
-		}
-		new private StringButton NextButton()
-		{
-			if (EnableButtonCount > 0)
-			{
-				if (activeButtonIndex == null)
-				{
-					activeButtonIndex = 0;
-				}
-				else
-				{
-					IncIndex();
-				}
-				while (ActiveButton.Enable == false)
-				{
-					IncIndex();
-				}
-				PaintEventPublisher(game);
-				return ActiveButton;
-			}
-			else
-				return null;
-		}
-		new private void SetNullIndex()
-		{
-			activeButtonIndex = null;
-			PaintEventPublisher(game);
-		}
 		private bool isGameChanged;
 		private bool isExitBoxVisible;
 		private void OpenExitBox()
 		{
-			isExitBoxVisible = true;
-			SetNullIndex();
-			buttons[0].Enable = false;
-			buttons[1].Enable = false;
-			buttons[2].Enable = true;
-			buttons[3].Enable = true;
-			buttons[4].Enable = true;
+			isExitBoxVisible = true;		
+			buttonsNameMap["Switch"].Enable = false;
+			buttonsNameMap["Exit"].Enable = false;
+			buttonsNameMap["Yes"].Enable = true;
+			buttonsNameMap["No"].Enable = true;
+			buttonsNameMap["Cancel"].Enable = true;
+			buttonsNameMap["Yes"].Visible = true;
+			buttonsNameMap["No"].Visible = true;
+			buttonsNameMap["Cancel"].Visible = true;
+			SetIndexNull();
 		}
 		private void CloseExitBox()
 		{
 			isExitBoxVisible = false;
-			SetNullIndex();
-			buttons[0].Enable = true;
-			buttons[1].Enable = true;
-			buttons[2].Enable = false;
-			buttons[3].Enable = false;
-			buttons[4].Enable = false;
+			buttonsNameMap["Switch"].Enable = true;
+			buttonsNameMap["Exit"].Enable = true;
+			buttonsNameMap["Yes"].Enable = false;
+			buttonsNameMap["No"].Enable = false;
+			buttonsNameMap["Cancel"].Enable = false;
+			buttonsNameMap["Yes"].Visible = false;
+			buttonsNameMap["No"].Visible = false;
+			buttonsNameMap["Cancel"].Visible = false;
+			SetIndexNull();
 		}
+
+		#region ButtonFunctions
 		private void SwitchButtonFunction()
 		{
-			//if (game == null) throw new NullReferenceException();
 			if (game.State == TetrisGame.States.Paused)
 			{
-				buttons[0].content = "  Pause";
 				game.Continue();
 			}
 			else if (game.State == TetrisGame.States.Playing)
 			{
-				buttons[0].content = "Continue";
 				game.Pause();
 			}
 			else if (game.State == TetrisGame.States.Losing)
 			{
-				buttons[0].content = "  Pause";
 				game.Restart();
 			}
 			else if (game.State == TetrisGame.States.Ready)
 			{
-				buttons[0].content = "  Pause";
 				game.Start();
+			}
+		}
+		private void ExitButtonFunction()
+		{
+			if (game.State == TetrisGame.States.Ready||game.State == TetrisGame.States.Losing)
+			{
+				Exit();
+			}
+			else
+			{
+				OpenExitBox();
 			}
 		}
 		private void SaveAndExit()
@@ -664,43 +660,58 @@ namespace WindowsFormsApp1
 			game.Exit();
 			ToMain();
 		}
-		private void ExitButtonClick()
-		{
-			if (game.State == TetrisGame.States.Ready||game.State == TetrisGame.States.Losing)
-			{
-				Exit();
-			}
-			else
-			{
-				OpenExitBox();
-			}
-		}
+		private Action ToMain;
 		private void Exit()
 		{
 			game.Exit();
 			ToMain();
 		}
-		private void LoseGame()
+		#endregion
+		#region TetrisGame.EventDelegations
+		private void LoseGame(object sender, EventArgs e)
 		{
-			buttons[0].content = " Restart";
 			isGameChanged = false;
-			PaintEventPublisher(game);
+			PaintEventPublisher();
 		}
+		private void StateChange(object sender, TetrisGame.StateChangeEventArgs e)
+		{
+			switch (e.newState)
+			{
+				case TetrisGame.States.Ready:
+					buttonsNameMap["Switch"].content = "   Start";
+					break;
+				case TetrisGame.States.Paused:
+					buttonsNameMap["Switch"].content = "Continue";
+					break;
+				case TetrisGame.States.Playing:
+					buttonsNameMap["Switch"].content = "  Pause";
+					break;
+				case TetrisGame.States.Losing:
+					buttonsNameMap["Switch"].content = " Restart";
+					break;
+				case TetrisGame.States.Abort:
+					break;
+				default:
+					break;
+			}
+		}
+		#endregion
 	}
 
-	class Setting : Page
+	/*class Setting : Page
 	{
-
+		
 	}
 
 	class RankPage : Page
 	{
 
-	}
+	}*/
 
 	class StringButton
 	{
 		public bool Enable { get; set; } = true;
+		public bool Visible { get; set; } = true;
 		public Rectangle activeRectangle;
 		public string content;
 		public Font font;
@@ -726,13 +737,11 @@ namespace WindowsFormsApp1
 		public Action ButtonClick;
 		public void Draw(Graphics graphics, bool isSelected)
 		{
-			Brush brush = isSelected ? Brushes.OrangeRed : Brushes.Black;
-			graphics.DrawString(content, font, brush, drawStringPoint);
+			if(Visible)
+			{
+				Brush brush = isSelected ? Brushes.OrangeRed : Brushes.Black;
+				graphics.DrawString(content, font, brush, drawStringPoint);
+			}
 		}
-	}
-
-	class MyClass
-	{
-
 	}
 }

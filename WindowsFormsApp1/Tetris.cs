@@ -17,6 +17,30 @@ namespace WindowsFormsApp1
 	[Serializable]
 	public sealed class TetrisGame : ISerializable
 	{
+		#region Properties
+		public Difficulty difficulty { get; private set; }
+		public int Row { get => Board.Row; }
+		public int Column { get => Board.Column; }
+		public int Score { get; private set; } = 0;
+		public int Level { get => Math.Min(Score / 120 + 1, 8); }
+		public int EliminatedLine { get; private set; } = 0;
+		public string PlayingTime { get => $"{playingTime.Hour.ToString().PadLeft(2, '0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
+		public States State
+		{
+			get => state;
+			private set
+			{
+				States oldState = state;
+				StateExitEvent(state);
+				state = value;
+				StateEntryEvent(state);
+				PaintEvent?.Invoke(this, null);
+				StateChangeEvent?.Invoke(this, new StateChangeEventArgs(oldState, state));
+			}
+		}
+		#endregion
+
+		public event EventHandler<StateChangeEventArgs> StateChangeEvent;
 		public event EventHandler PaintEvent;
 		public event EventHandler LoseGameEvent;
 		public enum Difficulty
@@ -24,26 +48,7 @@ namespace WindowsFormsApp1
 			Easy,
 			Medium,
 			Hard,
-		}
-		public Difficulty difficulty { get; private set; }
-		public int Row { get => Board.Row; }
-		public int Column { get => Board.Column; }
-		public int Score { get; private set; } = 0;
-		public int Level { get => Math.Min(Score / 120 + 1, 8); }
-		public int EliminatedLine { get; private set; } = 0;
-		private DateTime playingTime { get; set; }
-		public string PlayingTime {get => $"{playingTime.Hour.ToString().PadLeft(2,'0')}:{playingTime.Minute.ToString().PadLeft(2, '0')}:{playingTime.Second.ToString().PadLeft(2, '0')}"; }
-		private States state;
-        public States State
-		{
-			get => state;
-			set
-			{
-				StateExitEvent(state);
-				state = value;
-				StateEntryEvent(state);
-			}
-		}
+		}	     
         public enum States
         {
             Ready,
@@ -52,22 +57,28 @@ namespace WindowsFormsApp1
             Losing,
 			Abort,
         }
-		public bool hasEliminatedRow;
 
-		private Board board;
-		private MSTimer fallTimer;
-		private MSTimer clockTimer;
-
-		private TetrisGame()
+		public static TetrisGame Initialize(Difficulty level)
 		{
-			fallTimer = new MSTimer(450);
-			fallTimer.TimerAction += Falling;
-			clockTimer = new MSTimer(1000);
-			clockTimer.TimerAction += Timing;
-			board = new Board();
-			board.LineEliminateEvent += LineEliminate;
-			board.IncreaseScoreEvent += IncreaseScore;
-			board.LoseGameEvent += LoseGame;
+			TetrisGame game = new TetrisGame();
+			game.difficulty = level;
+			game.Score = 0;
+			game.EliminatedLine = 0;
+			game.playingTime = new DateTime(1, 1, 1, 0, 0, 0);
+			game.board.Initialize(level);
+			game.State = States.Ready;
+			return game;
+		}
+		public static TetrisGame Load(string path)
+		{
+			BinaryFormatter binaryFormatter = new BinaryFormatter();
+			TetrisGame game;
+			using (FileStream fs = new FileStream(path, FileMode.Open))
+			{
+				game = (TetrisGame)binaryFormatter.Deserialize(fs);
+			}
+			game.State = States.Paused;
+			return game;
 		}
 
 		public Color?[,] GetNextPieceBoard()
@@ -82,7 +93,7 @@ namespace WindowsFormsApp1
 		{
 			if (State == States.Playing && board.ClockwiseRotate())
 			{
-				PaintEvent(this, null);
+				PaintEvent?.Invoke(this, null);
 				PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
 			}
 		}
@@ -90,7 +101,7 @@ namespace WindowsFormsApp1
 		{
 			if (State == States.Playing && board.AntiClockwiseRotate())
 			{
-				PaintEvent(this, null);
+				PaintEvent?.Invoke(this, null);
 				PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
 			}
 		}
@@ -99,7 +110,7 @@ namespace WindowsFormsApp1
 			if (State == States.Playing)
 			{
 				while (board.Falling()) { continue; }
-				if (State == States.Playing) PaintEvent(this, null);
+				if (State == States.Playing) PaintEvent?.Invoke(this, null);
 				if (!hasEliminatedRow)
 				{
 					PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
@@ -114,7 +125,7 @@ namespace WindowsFormsApp1
 		{
 			if (State == States.Playing && board.MoveLeft(1))
 			{
-				PaintEvent(this, null);
+				PaintEvent?.Invoke(this, null);
 				PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
 			}
 		}
@@ -122,35 +133,9 @@ namespace WindowsFormsApp1
 		{
 			if (State == States.Playing && board.MoveRight(1))
 			{
-				PaintEvent(this, null);
+				PaintEvent?.Invoke(this, null);
 				PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Change);
 			}
-		}
-		public static TetrisGame Initialize(Difficulty level, EventHandler paintEvent, EventHandler loseGameEvent)
-		{
-			TetrisGame game = new TetrisGame();
-			game.difficulty = level;
-			game.Score = 0;
-			game.EliminatedLine = 0;
-			game.playingTime = new DateTime(1, 1, 1, 0, 0, 0);
-			game.PaintEvent += paintEvent;
-			game.LoseGameEvent += loseGameEvent;
-			game.board.Initialize(level);
-			game.State = States.Ready;
-			return game;
-		}
-        public static TetrisGame Load(string path, EventHandler paintEvent, EventHandler loseGameEvent)
-		{
-			BinaryFormatter binaryFormatter = new BinaryFormatter();
-			TetrisGame game;
-			using (FileStream fs = new FileStream(path, FileMode.Open))
-			{
-				game = (TetrisGame)binaryFormatter.Deserialize(fs);
-			}
-			game.PaintEvent += paintEvent;
-			game.LoseGameEvent += loseGameEvent;
-			game.State = States.Paused;
-			return game;
 		}
 		public void Start()
 		{
@@ -206,91 +191,9 @@ namespace WindowsFormsApp1
 		{
 			State = States.Abort;
 		}
-
-		private void PlaySoundEffect(Stream stream)
+		public void Refresh()
 		{
-			Thread thread = new Thread(() =>
-			{
-				SoundPlayer player = new SoundPlayer(stream);
-				player.Play();
-			});
-			thread.Start();
-		}
-		private void LineEliminate(object sender, int increment)
-		{
-			EliminatedLine += increment;
-			PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Eliminate);
-			hasEliminatedRow = true;
-		}
-		private void IncreaseScore(object sender, int increment)
-		{
-			int oldScore = Score;
-			Score += increment;
-			int newScore = Score;
-			if (!board.CanSpecialPieceGenerate && (oldScore / 100 < newScore / 100)) board.CanSpecialPieceGenerate = true;
-		}
-		private void LoseGame()
-		{
-			State = States.Losing;
-			LoseGameEvent(this, null);
-		}
-
-		private void StateEntryEvent(States state)
-		{
-			switch (state)
-			{
-				case States.Ready:
-					PaintEvent(this, null);
-					break;
-				case States.Paused:
-					PaintEvent(this, null);
-					break;
-				case States.Playing:
-					fallTimer.Start();
-					clockTimer.Start();
-					PaintEvent(this, null);
-					break;
-				case States.Losing:
-					PaintEvent(this, null);
-					break;
-				default:
-					break;
-			}
-		}
-		private void StateExitEvent(States state)
-		{
-			switch (state)
-			{
-				case States.Paused:
-					break;
-				case States.Playing:
-					fallTimer.Pause();
-					clockTimer.Pause();
-					break;
-				case States.Losing:
-					break;
-				default:
-					break;
-				case States.Ready:
-					break;
-			}
-		}
-
-        private void Falling()
-		{
-			if (State == States.Playing && board.Falling())
-			{
-				PaintEvent(this, null);
-				fallTimer.Interval = 500 - 50 * Level; 
-			}
-		}
-		private void Timing()
-		{
-			if (State == States.Playing)
-			{
-				playingTime = playingTime.AddSeconds(1);
-				PaintEvent(this, null);
-			}
+			PaintEvent?.Invoke(this, EventArgs.Empty);
 		}
 
 		#region ISerializable
@@ -320,6 +223,114 @@ namespace WindowsFormsApp1
 		}
 		#endregion
 
+		#region Private
+		private TetrisGame()
+		{
+			fallTimer = new MSTimer(450);
+			fallTimer.TimerAction += Falling;
+			clockTimer = new MSTimer(1000);
+			clockTimer.TimerAction += Timing;
+			board = new Board();
+			board.LineEliminateEvent += LineEliminate;
+			board.IncreaseScoreEvent += IncreaseScore;
+			board.LoseGameEvent += LoseGame;
+		}
+
+		private DateTime playingTime;
+		private States state;
+
+		private Board board;
+		private MSTimer fallTimer;
+		private MSTimer clockTimer;
+
+		private void StateEntryEvent(States state)
+		{
+			switch (state)
+			{
+				case States.Ready:
+					break;
+				case States.Paused:
+					break;
+				case States.Playing:
+					fallTimer.Start();
+					clockTimer.Start();
+					break;
+				case States.Losing:
+					break;
+				default:
+					break;
+			}
+		}
+		private void StateExitEvent(States state)
+		{
+			switch (state)
+			{
+				case States.Paused:
+					break;
+				case States.Playing:
+					fallTimer.Pause();
+					clockTimer.Pause();
+					break;
+				case States.Losing:
+					break;
+				default:
+					break;
+				case States.Ready:
+					break;
+			}
+		}
+
+		#region board.EventDelegations
+		private bool hasEliminatedRow;
+
+		private void PlaySoundEffect(Stream stream)
+		{
+			Thread thread = new Thread(() =>
+			{
+				SoundPlayer player = new SoundPlayer(stream);
+				player.Play();
+			});
+			thread.Start();
+		}
+		private void LineEliminate(object sender, int increment)
+		{
+			EliminatedLine += increment;
+			PlaySoundEffect(WindowsFormsApp1.Properties.Resources.Eliminate);
+			hasEliminatedRow = true;
+		}
+		private void IncreaseScore(object sender, int increment)
+		{
+			int oldScore = Score;
+			Score += increment;
+			int newScore = Score;
+			if (!board.CanSpecialPieceGenerate && (oldScore / 100 < newScore / 100)) board.CanSpecialPieceGenerate = true;
+		}
+		private void LoseGame(object sender, EventArgs e)
+		{
+			State = States.Losing;
+			LoseGameEvent?.Invoke(this, null);
+		}
+		#endregion
+
+		#region MSClock.EventDelegations
+		private void Falling(object sender, EventArgs e)
+		{
+			if (State == States.Playing && board.Falling())
+			{
+				PaintEvent(this, null);
+				fallTimer.Interval = 500 - 50 * Level;
+			}
+		}
+		private void Timing(object sender, EventArgs e)
+		{
+			if (State == States.Playing)
+			{
+				playingTime = playingTime.AddSeconds(1);
+				PaintEvent(this, null);
+			}
+		}
+		#endregion
+
 		[Serializable]
 		private sealed class Board : ISerializable
 		{
@@ -327,21 +338,10 @@ namespace WindowsFormsApp1
 			public const int Column = 10;
 			public event EventHandler<int> LineEliminateEvent;
 			public event EventHandler<int> IncreaseScoreEvent;
-			public event Action LoseGameEvent;
+			public event EventHandler LoseGameEvent;
 			public Color?[,] board;
-			public bool CanSpecialPieceGenerate { get; set; } = false;
-			private static Random RandomGenerator = new Random();
-			private Piece NextPiece { get; set; }
-			private Piece CurrentPiece { get; set; }
-			private (int CoordX, int CoordY) CurrentPieceCenter
-			{
-				get => currentPieceCenter;
-				set
-				{
-						currentPieceCenter = value;
-				}
-			}
-			private (int CoordX, int CoordY) currentPieceCenter;
+			public bool CanSpecialPieceGenerate = false;
+			
 			public Board() { }
 
 			public Color?[,] GetFourByFourTable()
@@ -389,7 +389,7 @@ namespace WindowsFormsApp1
 				{
 					bool isMoveLeftFirst = CurrentPieceCenter.CoordX > Column / 2;
 					foreach (var offset in TryMoveRightOffset(isMoveLeftFirst))
-					{		
+					{
 						if (MoveRight(offset) == true)
 						{
 							return true;
@@ -418,7 +418,7 @@ namespace WindowsFormsApp1
 					}
 					else
 					{
-						LoseGameEvent();
+						LoseGameEvent(this, EventArgs.Empty);
 					}
 					return false;
 				}
@@ -465,6 +465,12 @@ namespace WindowsFormsApp1
 			{
 				ChangeCurrentPiece();
 			}
+
+			#region private
+			private static Random RandomGenerator = new Random();
+			private Piece NextPiece;
+			private Piece CurrentPiece;
+			private (int CoordX, int CoordY) CurrentPieceCenter;
 
 			private static bool IsInBoard(int x, int y)
 			{
@@ -555,26 +561,26 @@ namespace WindowsFormsApp1
 						times = 0;
 						break;
 				}
-				for (int i = 0; i < times; i++) 
+				for (int i = 0; i < times; i++)
 				{
 					bool isRowFinished = false;
 					int Cursor = 0;
-					while(!isRowFinished)
+					while (!isRowFinished)
 					{
 						int leftOffset = -CurrentPiece.Offset.Min(t => t.OffSetX);
 						int RightOffset = CurrentPiece.Offset.Max(t => t.OffSetX);
-						while (MoveRight(coef));
+						while (MoveRight(coef)) ;
 						for (int j = 0; j < Cursor; j++)
 						{
 							MoveRight(-coef);
 						}
-						while(Falling());
+						while (Falling()) ;
 						Cursor += leftOffset + 1 + RightOffset;
 						if (Cursor >= Column) isRowFinished = true;
 					}
 					coef = -1 * coef;
 				}
-				
+
 			}
 			private Piece CreatePiece(int t)
 			{
@@ -634,6 +640,7 @@ namespace WindowsFormsApp1
 				yield return -1 * coefficient;
 				yield return -2 * coefficient;
 			}
+			#endregion
 
 			#region ISerializable
 			public void GetObjectData(SerializationInfo info, StreamingContext context)
@@ -650,10 +657,11 @@ namespace WindowsFormsApp1
 				CanSpecialPieceGenerate = info.GetBoolean("CanSpecialPieceGenerate");
 				NextPiece = (Piece)info.GetValue("NextPiece", typeof(Piece));
 				CurrentPiece = (Piece)info.GetValue("CurrentPiece", typeof(Piece));
-				CurrentPieceCenter = ((int,int))info.GetValue("CurrentPieceCenter",typeof((int,int)));
+				CurrentPieceCenter = ((int, int))info.GetValue("CurrentPieceCenter", typeof((int, int)));
 			}
 			#endregion
-			#region Piece
+
+			#region ClassPiece
 			[Serializable]
 			public abstract class Piece
 			{
@@ -975,7 +983,7 @@ namespace WindowsFormsApp1
 						{
 							CoordX = board.CurrentPieceCenter.CoordX + j;
 							CoordY = board.CurrentPieceCenter.CoordY - i;
-							if(IsInBoard(CoordX,CoordY))
+							if (IsInBoard(CoordX, CoordY))
 							{
 								board.board[CoordX, CoordY] = this.Color;
 							}
@@ -1033,7 +1041,6 @@ namespace WindowsFormsApp1
 			}
 			#endregion
 		}
-
 		[Serializable]
 		private class MSTimer : IDisposable
 		{
@@ -1045,13 +1052,14 @@ namespace WindowsFormsApp1
 			[NonSerialized] private Thread timer;
 			private int time = 1;
 			private int interval;
-			public event Action TimerAction;
+			private const int minTimeUnit = 50;
+			public event EventHandler TimerAction;
 			public int Time
 			{
 				get => time;
 				set
 				{
-					time = value % (Interval / 50);
+					time = value % (Interval / minTimeUnit);
 				}
 			}
 			public int Interval
@@ -1086,10 +1094,10 @@ namespace WindowsFormsApp1
 				{
 					if (Time == 0)
 					{
-						Thread thread = new Thread(() => { TimerAction(); });
+						Thread thread = new Thread(() => { TimerAction(this, EventArgs.Empty); });
 						thread.Start();
 					}
-					Thread.Sleep(50);
+					Thread.Sleep(minTimeUnit);
 					Time = Time + 1;
 				}
 			}
@@ -1097,6 +1105,19 @@ namespace WindowsFormsApp1
 			public void Dispose()
 			{
 				if (timer.ThreadState == ThreadState.Running) timer.Abort();
+			}
+		}
+		#endregion
+
+		public class StateChangeEventArgs
+		{
+			public States oldState;
+			public States newState;
+
+			public StateChangeEventArgs(States oldState, States newState)
+			{
+				this.oldState = oldState;
+				this.newState = newState;
 			}
 		}
 	}
