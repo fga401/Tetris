@@ -57,7 +57,7 @@ namespace WindowsFormsApp1
 		{
 			throw new NotSupportedException();
 		}
-		void ToRank()
+		void ToLeaderBoard()
 		{
 			throw new NotSupportedException();
 		}
@@ -68,9 +68,10 @@ namespace WindowsFormsApp1
 			InitializeComponent();
 			pages = new Dictionary<string, Page>
 			{
-				{"MainPage", new MainPage(ExitApp, ToGamingLoad, ToLevelSelection, ToSetting, ToRank)},
+				{"MainPage", new MainPage(ExitApp, ToGamingLoad, ToLevelSelection, ToSetting, ToLeaderBoard)},
 				{"LevelSelectionPage", new LevelSelectionPage(ToMain, ToGamingEasy, ToGamingMedium, ToGamingHard)},
 				{"GamingPage", new GamingPage(null, ToMain)},
+				{"LeaderBoardPage", new LeaderBoardPage(ToMain)},
 			};
 			currentPageKey = "MainPage";
 			foreach (var page in pages.Values)
@@ -94,19 +95,30 @@ namespace WindowsFormsApp1
 		private void PaintTest(Graphics graphics)
 		{
 			graphics.FillRectangle(new SolidBrush(Color.BurlyWood), this.DisplayRectangle);
-			graphics.DrawString("Tetris", new Font("Arial Black", 65), Brushes.Black, 55, 60);
-			graphics.DrawRectangle(Pens.Red, 65, 90, 290, 70);
-			graphics.DrawString("Easy", new Font("Arial Black", 15), Brushes.Black, 180, 340);
-			graphics.DrawRectangle(Pens.Red, 181, 344, 56, 20);
-			graphics.DrawString("Medium", new Font("Arial Black", 15), Brushes.Black, 162, 380);
-			graphics.DrawRectangle(Pens.Red, 163, 384, 88, 20);
-			graphics.DrawString("Hard", new Font("Arial Black", 15), Brushes.Black, 180, 420);
-			graphics.DrawRectangle(Pens.Red, 181, 424, 56, 20);
-			//graphics.DrawString("Rank", new Font("Arial Black", 15), Brushes.Black, 174, 460);
-			//graphics.DrawRectangle(Pens.Red, 174, 464, 60, 20);
+			graphics.DrawString("LeaderBoard", new Font("Arial Black", 25), Brushes.Black, 85, 25);
+			graphics.DrawLine(new Pen(Color.Black, 4), 40, 125, 380, 125);
+			graphics.DrawString("Medium", new Font("Arial Black", 12), Brushes.Black, 40, 135);
+			graphics.DrawString("Hard", new Font("Arial Black", 12), Brushes.Black, 40, 175);
+			graphics.DrawString("Hard", new Font("Arial Black", 12), Brushes.Black, 40, 495);
+			graphics.DrawString("4560", new Font("Arial Black", 12), Brushes.Black, 140, 135);
+			graphics.DrawString("7890", new Font("Arial Black", 12), Brushes.Black, 140, 175);
+			graphics.DrawString("7890", new Font("Arial Black", 12), Brushes.Black, 140, 495);
+			graphics.DrawString("Tester", new Font("Arial Black", 12), Brushes.Black, 270, 135);
+			graphics.DrawLine(new Pen(Color.Black, 4), 40, 530, 380, 530);
+
+			graphics.DrawString("Easy", new Font("Arial Black", 12), Brushes.Black, 70, 85);
+			graphics.DrawRectangle(Pens.Red, 71, 87, 47, 18);
+			graphics.DrawString("Medium", new Font("Arial Black", 12), Brushes.Black, 170, 85);
+			graphics.DrawRectangle(Pens.Red, 171, 87, 72, 18);
+			graphics.DrawString("Hard", new Font("Arial Black", 12), Brushes.Black, 290, 85);
+			graphics.DrawRectangle(Pens.Red, 291, 87, 46, 18);
+			graphics.DrawString("Previous", new Font("Arial Black", 12), Brushes.Black, 50, 550);
+			graphics.DrawRectangle(Pens.Red, 51, 552, 80, 18);
+			graphics.DrawString("Next", new Font("Arial Black", 12), Brushes.Black, 310, 550);
+			graphics.DrawRectangle(Pens.Red, 311, 552, 46, 18);
+
 		}
 #endif
-
 
 		private void LoseGame(object sender,EventArgs e)
 		{
@@ -133,6 +145,7 @@ namespace WindowsFormsApp1
 
 		private void TetrisForm_Shown(object sender, EventArgs e)
 		{
+			//PaintTest(CreateGraphics());
 			CurrentPage.Activate(null);
 		}
 

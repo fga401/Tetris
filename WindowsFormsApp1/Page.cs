@@ -316,14 +316,14 @@ namespace WindowsFormsApp1
 				graphics.DrawString($"{game.Score,8}", defaultFont, Brushes.Black, 290, 190);
 				graphics.DrawString("Line:", defaultFont, Brushes.Black, 290, 230);
 				graphics.DrawString($"{game.EliminatedLine,8}", defaultFont, Brushes.Black, 290, 250);
-				graphics.DrawString("Mod:", defaultFont, Brushes.Black, 290, 290);
+				graphics.DrawString("Level:", defaultFont, Brushes.Black, 290, 290);
 				graphics.DrawString($"{game.Level,8}", defaultFont, Brushes.Black, 290, 310);
 				graphics.DrawString("Time:", defaultFont, Brushes.Black, 290, 350);
 				graphics.DrawString($"{game.PlayingTime,12}", defaultFont, Brushes.Black, 290, 370);
-				graphics.DrawString("Time:", defaultFont, Brushes.Black, 290, 350);
-				graphics.DrawString($"{game.PlayingTime,12}", defaultFont, Brushes.Black, 290, 370);
-				graphics.DrawString("State:", defaultFont, Brushes.Black, 290, 410);
-				graphics.DrawString($"{game.State,12}", defaultFont, Brushes.Black, 290, 430);
+				graphics.DrawString("Difficulty:", defaultFont, Brushes.Black, 290, 410);
+				graphics.DrawString($"{game.difficulty,12}", defaultFont, Brushes.Black, 290, 430);
+				graphics.DrawString("State:", defaultFont, Brushes.Black, 290, 470);
+				graphics.DrawString($"{game.State,12}", defaultFont, Brushes.Black, 290, 490);
 
 				void PaintPieceSquare(Color color, int PixelX, int PixelY, int width = SquarePixelWidth, int height = SquarePixelWidth)
 				{
@@ -701,12 +701,23 @@ namespace WindowsFormsApp1
 	/*class Setting : Page
 	{
 		
-	}
-
-	class RankPage : Page
-	{
-
 	}*/
+
+	class LeaderBoardPage : Page
+	{
+		public LeaderBoardPage(Action toPrevious) : base(toPrevious)
+		{
+			/*buttonsNameMap = new Dictionary<string, StringButton>
+			{
+				{"Previous", new StringButton()},
+				{"Next", new StringButton() }
+			};
+			buttons = new List<StringButton>
+			{
+
+			};*/
+		}
+	}
 
 	class StringButton
 	{

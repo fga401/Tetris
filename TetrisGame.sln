@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WindowsFormsApp1", "WindowsFormsApp1\WindowsFormsApp1.csproj", "{68828014-4E36-4073-837A-6EFBA503CB52}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TetrisSources", "WindowsFormsApp1\TetrisSources.csproj", "{68828014-4E36-4073-837A-6EFBA503CB52}"
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "Tetris", "Tetris\Tetris.vdproj", "{864A4338-EB3C-40AF-A0CC-EE6E0F964C5C}"
 EndProject
